@@ -11,6 +11,7 @@ import { recordPayment } from "@/app/actions/invoices"
 interface Entity {
   id: number
   name: string
+  balance_due?: number
 }
 
 interface PaymentModalProps {
@@ -52,9 +53,17 @@ export function PaymentModal({
   }, [])
 
   const selectedEntity = entities.find((e) => e.id === paidByEntityId)
+  const isDebtTransfer = method === "debt_transfer"
   const filteredEntities = entities.filter((e) =>
-    e.name.toLowerCase().includes(entitySearch.toLowerCase())
+    e.name.toLowerCase().includes(entitySearch.toLowerCase()) && 
+    (isDebtTransfer ? e.id !== defaultEntityId : true)
   )
+
+  React.useEffect(() => {
+    if (isDebtTransfer && selectedEntity) {
+      setNotes(`Paid via ${selectedEntity.name} account`)
+    }
+  }, [isDebtTransfer, selectedEntity])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -118,6 +127,7 @@ export function PaymentModal({
               <option value="cash">Cash</option>
               <option value="cheque">Cheque</option>
               <option value="transfer">Transfer</option>
+              <option value="debt_transfer">Deduct from another client's balance</option>
             </select>
           </div>
 
@@ -135,52 +145,59 @@ export function PaymentModal({
           )}
 
           {/* Paid By (entity selector) */}
-          <div>
-            <Label>Paid By</Label>
-            <div className="relative" ref={entityRef}>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search..."
-                  className="pl-9"
-                  value={entityDropdownOpen ? entitySearch : (selectedEntity?.name || "")}
-                  onChange={(e) => {
-                    setEntitySearch(e.target.value)
-                    setEntityDropdownOpen(true)
-                  }}
-                  onFocus={() => {
-                    setEntityDropdownOpen(true)
-                    setEntitySearch("")
-                  }}
-                />
-              </div>
-              {entityDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-36 overflow-y-auto">
-                  {filteredEntities.map((entity) => (
-                    <button
-                      key={entity.id}
-                      type="button"
-                      className={`flex w-full px-3 py-2 text-sm hover:bg-accent text-left ${
-                        entity.id === paidByEntityId ? "bg-accent font-medium" : ""
-                      }`}
-                      onClick={() => {
-                        setPaidByEntityId(entity.id)
-                        setEntityDropdownOpen(false)
-                        setEntitySearch("")
-                      }}
-                    >
-                      {entity.name}
-                    </button>
-                  ))}
+          {isDebtTransfer ? (
+            <div>
+              <Label>Deduct from:</Label>
+              <div className="relative" ref={entityRef}>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search clients..."
+                    className="pl-9"
+                    value={entityDropdownOpen ? entitySearch : (selectedEntity?.name || "")}
+                    onChange={(e) => {
+                      setEntitySearch(e.target.value)
+                      setEntityDropdownOpen(true)
+                    }}
+                    onFocus={() => {
+                      setEntityDropdownOpen(true)
+                      setEntitySearch("")
+                    }}
+                  />
                 </div>
+                {entityDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-36 overflow-y-auto">
+                    {filteredEntities.map((entity) => (
+                      <button
+                        key={entity.id}
+                        type="button"
+                        className={`flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent text-left ${
+                          entity.id === paidByEntityId ? "bg-accent font-medium" : ""
+                        }`}
+                        onClick={() => {
+                          setPaidByEntityId(entity.id)
+                          setEntityDropdownOpen(false)
+                          setEntitySearch("")
+                        }}
+                      >
+                        <span>{entity.name}</span>
+                        {entity.balance_due !== undefined && entity.balance_due > 0 && (
+                          <span className="text-red-600 text-xs font-semibold">
+                            {entity.balance_due.toLocaleString()} MAD due
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {selectedEntity && selectedEntity.balance_due !== undefined && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Available to deduct: <span className="font-medium">{selectedEntity.balance_due.toLocaleString()} MAD</span>
+                </p>
               )}
             </div>
-            {paidByEntityId !== defaultEntityId && (
-              <p className="mt-1 text-xs text-amber-600">
-                ⚠ Paying on behalf of another entity — a debt transfer will be created.
-              </p>
-            )}
-          </div>
+          ) : null}
 
           {/* Date */}
           <div>
@@ -209,7 +226,7 @@ export function PaymentModal({
             <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting || amount <= 0}>
+            <Button type="submit" disabled={submitting || amount <= 0 || (isDebtTransfer && (!paidByEntityId || paidByEntityId === defaultEntityId))}>
               {submitting ? "Processing..." : "Record Payment"}
             </Button>
           </div>

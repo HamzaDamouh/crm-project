@@ -152,7 +152,7 @@ model Payment {
   id                Int       @id @default(autoincrement())
   invoice_id        Int?
   paid_by_entity_id Int
-  method            String    // 'cash'|'cheque'|'transfer'
+  method            String    // 'cash'|'cheque'|'transfer'|'debt_transfer'
   amount            Float
   cheque_number     String?
   payment_date      DateTime?
@@ -161,6 +161,7 @@ model Payment {
 
   invoice      Invoice? @relation(fields: [invoice_id], references: [id])
   paidByEntity Entity   @relation("PaymentsMade", fields: [paid_by_entity_id], references: [id])
+  debtTransfers DebtTransfer[]
 }
 
 model DebtTransfer {
@@ -174,6 +175,7 @@ model DebtTransfer {
 
   fromEntity Entity @relation("DebtTransferredFrom", fields: [from_entity_id], references: [id])
   toEntity   Entity @relation("DebtTransferredTo", fields: [to_entity_id], references: [id])
+  related_payment Payment? @relation(fields: [related_payment_id], references: [id])
 }
 
 model DailySalesLog {

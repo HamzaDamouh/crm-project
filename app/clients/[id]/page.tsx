@@ -56,6 +56,15 @@ export default async function ClientDetailPage({
     include: {
       fromEntity: { select: { name: true } },
       toEntity: { select: { name: true } },
+      related_payment: {
+        include: {
+          invoice: {
+            include: {
+              entity: { select: { name: true } }
+            }
+          }
+        }
+      }
     },
   })
 
@@ -105,6 +114,8 @@ export default async function ClientDetailPage({
         created_at: dt.created_at.toISOString(),
         fromEntity: dt.fromEntity,
         toEntity: dt.toEntity,
+        relatedInvoiceNumber: dt.related_payment?.invoice?.invoice_number || dt.related_payment?.invoice?.id ? `#${dt.related_payment.invoice.id}` : null,
+        relatedInvoiceEntityName: dt.related_payment?.invoice?.entity?.name || null,
       }))}
       allEntities={allEntities}
       unpaidInvoices={unpaidInvoices.map((inv) => ({

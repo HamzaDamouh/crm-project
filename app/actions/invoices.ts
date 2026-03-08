@@ -67,15 +67,19 @@ export async function recordPayment(data: RecordPaymentData) {
       },
     })
 
-    // If paid by a different entity, create a debt transfer
-    if (data.paidByEntityId !== invoice.entity_id) {
+    // If debt_transfer or paid by a different entity, create a debt transfer
+    if (data.method === "debt_transfer" || data.paidByEntityId !== invoice.entity_id) {
+      // The person receiving the goods gets their debt reduced on our books (invoice gets paid above)
+      // The person who paid on their behalf has their balance reduced
+      // Because we "deducted" from their balance
+      
       await prisma.debtTransfer.create({
         data: {
-          from_entity_id: invoice.entity_id,
-          to_entity_id: data.paidByEntityId,
+          from_entity_id: data.paidByEntityId,
+          to_entity_id: invoice.entity_id,
           amount: data.amount,
           related_payment_id: payment.id,
-          note: `Payment for invoice ${invoice.invoice_number || "#" + invoice.id} transferred`,
+          note: data.notes || `Payment for invoice ${invoice.invoice_number || "#" + invoice.id} transferred`,
         },
       })
     }
