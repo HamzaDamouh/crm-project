@@ -80,10 +80,10 @@ export async function saveAsTransaction(data: TransactionData) {
     revalidatePath("/dashboard")
     revalidatePath("/transactions")
 
-    return { success: true, message: "Transaction saved successfully!" }
+    return { success: true, message: "Transaction enregistrée avec succès !" }
   } catch (error) {
     console.error("Error saving transaction:", error)
-    return { success: false, message: "Failed to save transaction." }
+    return { success: false, message: "Échec de l'enregistrement de la transaction." }
   }
 }
 
@@ -146,9 +146,9 @@ export async function generateInvoice(data: TransactionData) {
     revalidatePath("/dashboard")
     revalidatePath("/invoices")
 
-    return { success: true, message: "Invoice generated!", invoiceId: invoice.id }
+    return { success: true, message: "Facture générée !", invoiceId: invoice.id }
   } catch (error) {
     console.error("Error generating invoice:", error)
-    return { success: false, message: "Failed to generate invoice." }
+    return { success: false, message: "Échec de la génération de la facture." }
   }
 }

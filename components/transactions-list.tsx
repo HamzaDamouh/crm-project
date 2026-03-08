@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { DollarSign, Clock, Plus } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
 
 interface SalesLogEntry {
   id: number
@@ -71,9 +72,9 @@ export function TransactionsListClient({ entries }: { entries: SalesLogEntry[] }
   }, 0)
 
   const tabs = [
-    { key: "all" as const, label: "All", count: entries.length },
-    { key: "pending" as const, label: "Pending", count: pendingCount },
-    { key: "invoiced" as const, label: "Invoiced", count: entries.length - pendingCount },
+    { key: "all" as const, label: "Toutes", count: entries.length },
+    { key: "pending" as const, label: "En attente", count: pendingCount },
+    { key: "invoiced" as const, label: "Facturées", count: entries.length - pendingCount },
   ]
 
   return (
@@ -81,7 +82,7 @@ export function TransactionsListClient({ entries }: { entries: SalesLogEntry[] }
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
         <Link href="/transactions/new">
-          <Button><Plus className="h-4 w-4 mr-2" /> New Transaction</Button>
+          <Button><Plus className="h-4 w-4 mr-2" /> Nouvelle transaction</Button>
         </Link>
       </div>
 
@@ -93,8 +94,8 @@ export function TransactionsListClient({ entries }: { entries: SalesLogEntry[] }
               <DollarSign className="h-5 w-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Pending Value</p>
-              <p className="text-xl font-bold">{pendingTotal.toLocaleString()} MAD</p>
+              <p className="text-sm text-muted-foreground">Valeur en attente</p>
+              <p className="text-xl font-bold">{formatCurrency(pendingTotal)}</p>
             </div>
           </CardContent>
         </Card>
@@ -104,7 +105,7 @@ export function TransactionsListClient({ entries }: { entries: SalesLogEntry[] }
               <Clock className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Pending Count</p>
+              <p className="text-sm text-muted-foreground">Nombre en attente</p>
               <p className="text-xl font-bold">{pendingCount}</p>
             </div>
           </CardContent>
@@ -143,11 +144,11 @@ export function TransactionsListClient({ entries }: { entries: SalesLogEntry[] }
                   />
                 </TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead className="text-center">Qty</TableHead>
-                <TableHead className="text-right">Unit Price</TableHead>
+                <TableHead>Produit</TableHead>
+                <TableHead className="text-center">Qté</TableHead>
+                <TableHead className="text-right">Prix unitaire</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Statut</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -185,17 +186,17 @@ export function TransactionsListClient({ entries }: { entries: SalesLogEntry[] }
                       </TableCell>
                       <TableCell className="text-center">{entry.qty}</TableCell>
                       <TableCell className="text-right">
-                        {entry.unit_price.toLocaleString()} MAD
+                        {formatCurrency(entry.unit_price)}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {entry.total.toLocaleString()} MAD
+                        {formatCurrency(entry.total)}
                       </TableCell>
                       <TableCell>
                         {entry.invoiced ? (
-                          <Badge className="bg-green-600 text-white">Invoiced</Badge>
+                          <Badge className="bg-green-600 text-white">Facturé</Badge>
                         ) : (
                           <Badge variant="outline" className="border-amber-400 text-amber-600">
-                            Pending
+                            En attente
                           </Badge>
                         )}
                       </TableCell>
@@ -206,7 +207,7 @@ export function TransactionsListClient({ entries }: { entries: SalesLogEntry[] }
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    No transactions found.
+                    Aucune transaction trouvée.
                   </TableCell>
                 </TableRow>
               )}
@@ -218,11 +219,11 @@ export function TransactionsListClient({ entries }: { entries: SalesLogEntry[] }
       {selected.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-foreground text-background px-6 py-4 rounded-full shadow-lg flex items-center gap-6 z-50">
           <div className="text-sm font-medium">
-            {selected.size} transaction{selected.size > 1 ? "s" : ""} selected — Total: {selectedTotal.toLocaleString()} MAD
+            {selected.size} transaction(s) sélectionnée(s) — Total : {formatCurrency(selectedTotal)}
           </div>
           <Link href={`/month-end?selected=${Array.from(selected).join(",")}`}>
             <Button variant="secondary" size="sm">
-              Send to Month-End
+              Envoyer à la clôture
             </Button>
           </Link>
         </div>

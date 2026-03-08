@@ -8,16 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Trash2, ShoppingCart, FileText, Search } from "lucide-react"
 import { saveAsTransaction, generateInvoice } from "@/app/actions/transactions"
+import { formatCurrency } from "@/lib/utils"
 
 // ——— Types ———
 
@@ -212,13 +206,13 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
         total,
       })
       if (result.success) {
-        toast.success(`${validLines.length} transaction${validLines.length > 1 ? 's' : ''} saved — visible in Month-End`)
+        toast.success(`${validLines.length} transaction(s) enregistrée(s) visible(s) dans la Clôture mensuelle`)
         setLines([emptyLine()])
       } else {
         toast.error(result.message)
       }
     } catch {
-      toast.error("An unexpected error occurred.")
+      toast.error("Erreur inattendue.")
     } finally {
       setSubmitting(false)
     }
@@ -241,7 +235,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
         total,
       })
       if (result.success && result.invoiceId) {
-        toast.success(result.message)
+        toast.success(`Facture ${"invoiceNumber" in result ? result.invoiceNumber : "créée"} avec succès`)
         router.push(`/invoices/${result.invoiceId}`)
       } else if (result.success) {
         toast.success(result.message)
@@ -250,7 +244,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
         toast.error(result.message)
       }
     } catch {
-      toast.error("An unexpected error occurred.")
+      toast.error("Erreur inattendue.")
     } finally {
       setSubmitting(false)
     }
@@ -282,7 +276,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
 
   return (
     <div className="flex-1 space-y-6 p-6">
-      <h1 className="text-3xl font-bold tracking-tight">New Transaction</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Nouvelle transaction</h1>
 
       {/* ——— CLIENT SELECTOR ——— */}
       <Card>
@@ -292,13 +286,13 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
         <CardContent>
           <div className="relative max-w-md" ref={entityRef}>
             <Label htmlFor="client-search" className="mb-2 block text-sm">
-              Select Client
+              Sélectionner le client
             </Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="client-search"
-                placeholder="Search clients..."
+                placeholder="Rechercher un client..."
                 className="pl-9"
                 value={entityDropdownOpen ? entitySearch : (selectedEntity?.name || "")}
                 onChange={(e) => {
@@ -329,19 +323,19 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
                     <span>{entity.name}</span>
                     {entity.balance_due > 0 && (
                       <span className="text-red-600 text-xs font-semibold">
-                        {entity.balance_due.toLocaleString()} MAD
+                        {formatCurrency(entity.balance_due)}
                       </span>
                     )}
                   </button>
                 ))}
                 {filteredEntities.length === 0 && (
-                  <div className="px-3 py-2 text-sm text-muted-foreground">No results</div>
+                  <div className="px-3 py-2 text-sm text-muted-foreground">Aucun résultat</div>
                 )}
               </div>
             )}
             {selectedEntity && selectedEntity.balance_due > 0 && !entityDropdownOpen && (
               <div className="mt-2 text-sm text-yellow-700 bg-yellow-50 px-3 py-2 rounded-md border border-yellow-200">
-                ⚠ Outstanding balance: {selectedEntity.balance_due.toLocaleString()} MAD
+                ⚠ Solde impayé: {formatCurrency(selectedEntity.balance_due)}
               </div>
             )}
           </div>
@@ -351,16 +345,16 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
       {/* ——— PRODUCT LINE ITEMS ——— */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Products</CardTitle>
+          <CardTitle className="text-lg">Produits</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
-            <TableHeader>
+             <TableHeader>
               <TableRow>
-                <TableHead className="w-[320px]">Product</TableHead>
-                <TableHead className="w-[100px]">Qty</TableHead>
-                <TableHead className="w-[180px]">Unit Price (MAD)</TableHead>
-                <TableHead className="w-[120px] text-right">Line Total</TableHead>
+                <TableHead className="w-[320px]">Produit</TableHead>
+                <TableHead className="w-[100px]">Qté</TableHead>
+                <TableHead className="w-[180px]">Prix unitaire (MAD)</TableHead>
+                <TableHead className="w-[120px] text-right">Total ligne</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -377,7 +371,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
                       }}
                     >
                       <Input
-                        placeholder="Search by name or SKU..."
+                        placeholder="Rechercher par nom ou SKU..."
                         value={productDropdownOpen === line.id ? line.productSearch : (line.productId ? line.productSearch : "")}
                         onChange={(e) => {
                           updateLine(line.id, { productSearch: e.target.value })
@@ -402,14 +396,14 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
                               <div>
                                 <div className="font-medium">{product.name}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  SKU: {product.reference || "N/A"} • Stock: {product.stock_qty}
+                                  Réf: {product.reference || "N/A"} • Stock: {product.stock_qty}
                                 </div>
                               </div>
                             </button>
                           ))}
                           {getFilteredProducts(line.productSearch).length === 0 && (
                             <div className="px-3 py-2 text-sm text-muted-foreground">
-                              No products found
+                              Aucun produit trouvé
                             </div>
                           )}
                         </div>
@@ -449,7 +443,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
 
                   {/* Line Total */}
                   <TableCell className="text-right font-medium">
-                    {line.lineTotal.toLocaleString()} MAD
+                    {formatCurrency(line.lineTotal)}
                   </TableCell>
 
                   {/* Delete */}
@@ -469,7 +463,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
           </Table>
 
           <Button variant="outline" className="mt-4" onClick={addLine}>
-            <Plus className="h-4 w-4 mr-2" /> Add Line
+            <Plus className="h-4 w-4 mr-2" /> Ajouter une ligne
           </Button>
         </CardContent>
       </Card>
@@ -477,21 +471,21 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
       {/* ——— SUMMARY ——— */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Summary</CardTitle>
+          <CardTitle className="text-lg">Résumé</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2 max-w-xs ml-auto">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span>{subtotal.toLocaleString()} MAD</span>
+              <span className="text-muted-foreground">Sous-total</span>
+              <span>{formatCurrency(subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">TVA (20%)</span>
-              <span>{taxAmount.toLocaleString()} MAD</span>
+              <span>{formatCurrency(taxAmount)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold border-t pt-2">
               <span>Total</span>
-              <span>{total.toLocaleString()} MAD</span>
+              <span>{formatCurrency(total)}</span>
             </div>
           </div>
         </CardContent>
@@ -506,7 +500,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
           onClick={handleSaveTransaction}
         >
           <ShoppingCart className="h-4 w-4 mr-2" />
-          {submitting ? "Saving..." : "Save as Transaction"}
+          {submitting ? "Enregistrement..." : "Enregistrer la transaction"}
         </Button>
         <Button
           size="lg"
@@ -514,7 +508,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
           onClick={handleGenerateInvoice}
         >
           <FileText className="h-4 w-4 mr-2" />
-          {submitting ? "Generating..." : "Generate Invoice"}
+          {submitting ? "Génération..." : "Générer une facture"}
         </Button>
       </div>
     </div>
