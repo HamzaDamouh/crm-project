@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Checkbox } from "@/components/ui/checkbox"
 import { CalendarCheck, Search, FileText, AlertTriangle } from "lucide-react"
 import { generateConsolidatedInvoice } from "@/app/actions/month-end"
 
@@ -51,10 +52,28 @@ export function MonthEndClient({
   const [selectedEntityId, setSelectedEntityId] = React.useState<number>(
     entities[0]?.id || 0
   )
+  const [selectedEntryIds, setSelectedEntryIds] = React.useState<Set<number>>(
+    new Set(entries.map((e) => e.id))
+  )
   const [entitySearch, setEntitySearch] = React.useState("")
   const [entityDropdownOpen, setEntityDropdownOpen] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
   const entityRef = React.useRef<HTMLDivElement>(null)
+
+  function toggleEntry(id: number) {
+    const next = new Set(selectedEntryIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelectedEntryIds(next)
+  }
+
+  function toggleAll() {
+    if (selectedEntryIds.size === entries.length) {
+      setSelectedEntryIds(new Set())
+    } else {
+      setSelectedEntryIds(new Set(entries.map((e) => e.id)))
+    }
+  }
 
   React.useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -79,15 +98,16 @@ export function MonthEndClient({
     return entry.qty * getPrice(entry)
   }
 
-  const runningTotal = entries.reduce((sum, e) => sum + getLineTotal(e), 0)
+  const selectedEntriesList = entries.filter((e) => selectedEntryIds.has(e.id))
+  const runningTotal = selectedEntriesList.reduce((sum, e) => sum + getLineTotal(e), 0)
   const taxAmount = Math.round(runningTotal * 0.2 * 100) / 100
   const grandTotal = Math.round((runningTotal + taxAmount) * 100) / 100
 
   async function handleGenerate() {
-    if (entries.length === 0 || !selectedEntityId) return
+    if (selectedEntriesList.length === 0 || !selectedEntityId) return
     setSubmitting(true)
     try {
-      const lines = entries.map((e) => ({
+      const lines = selectedEntriesList.map((e) => ({
         logId: e.id,
         productId: e.product.id,
         qty: e.qty,
@@ -134,7 +154,7 @@ export function MonthEndClient({
               {entries.length} unprocessed transaction{entries.length !== 1 ? "s" : ""}
             </p>
             <p className="text-sm text-amber-700">
-              Total value: {runningTotal.toLocaleString()} MAD (before tax)
+              {selectedEntryIds.size} transaction{selectedEntryIds.size !== 1 ? "s" : ""} selected — Total: {runningTotal.toLocaleString()} MAD (before tax)
             </p>
           </div>
         </CardContent>
@@ -161,6 +181,15 @@ export function MonthEndClient({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">
+                    <Checkbox
+                      checked={
+                        entries.length > 0 && selectedEntryIds.size === entries.length
+                      }
+                      onCheckedChange={toggleAll}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Product</TableHead>
                   <TableHead className="text-center">Qty</TableHead>
@@ -173,8 +202,16 @@ export function MonthEndClient({
                   const isEdited =
                     editedPrices[entry.id] !== undefined &&
                     editedPrices[entry.id] !== entry.unit_price
+                  const isChecked = selectedEntryIds.has(entry.id)
                   return (
-                    <TableRow key={entry.id}>
+                    <TableRow key={entry.id} className={!isChecked ? "opacity-60" : ""}>
+                      <TableCell>
+                        <Checkbox
+                          checked={isChecked}
+                          onCheckedChange={() => toggleEntry(entry.id)}
+                          aria-label={`Select transaction ${entry.id}`}
+                        />
+                      </TableCell>
                       <TableCell className="text-sm">
                         {new Date(entry.log_date).toLocaleDateString("fr-MA")}
                       </TableCell>
@@ -215,15 +252,15 @@ export function MonthEndClient({
                 })}
                 {/* Running total row */}
                 <TableRow className="bg-muted/30 font-bold">
-                  <TableCell colSpan={4} className="text-right">
-                    Subtotal
+                  <TableCell colSpan={5} className="text-right">
+                    Subtotal (Selected)
                   </TableCell>
                   <TableCell className="text-right">
                     {runningTotal.toLocaleString()} MAD
                   </TableCell>
                 </TableRow>
                 <TableRow className="font-medium">
-                  <TableCell colSpan={4} className="text-right text-sm text-muted-foreground">
+                  <TableCell colSpan={5} className="text-right text-sm text-muted-foreground">
                     TVA (20%)
                   </TableCell>
                   <TableCell className="text-right text-sm">
@@ -231,7 +268,7 @@ export function MonthEndClient({
                   </TableCell>
                 </TableRow>
                 <TableRow className="bg-muted/50 font-bold text-lg">
-                  <TableCell colSpan={4} className="text-right">
+                  <TableCell colSpan={5} className="text-right">
                     Total
                   </TableCell>
                   <TableCell className="text-right">
@@ -296,7 +333,7 @@ export function MonthEndClient({
       <div className="flex justify-end pb-8">
         <Button
           size="lg"
-          disabled={entries.length === 0 || !selectedEntityId || submitting}
+          disabled={selectedEntriesList.length === 0 || !selectedEntityId || submitting}
           onClick={handleGenerate}
         >
           <FileText className="h-4 w-4 mr-2" />
