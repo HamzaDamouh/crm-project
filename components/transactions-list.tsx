@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -11,7 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { DollarSign, Clock } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { DollarSign, Clock, Plus } from "lucide-react"
 
 interface SalesLogEntry {
   id: number
@@ -71,7 +73,12 @@ export function TransactionsListClient({ entries }: { entries: SalesLogEntry[] }
 
   return (
     <div className="flex-1 p-6 space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
+        <Link href="/transactions/new">
+          <Button><Plus className="h-4 w-4 mr-2" /> New Transaction</Button>
+        </Link>
+      </div>
 
       {/* Summary Bar */}
       <div className="grid grid-cols-2 gap-4 max-w-lg">
