@@ -9,6 +9,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { Search } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
 
 interface Client {
   id: number
@@ -35,7 +36,7 @@ export function ClientsListClient({ clients }: { clients: Client[] }) {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search clients..."
+          placeholder="Rechercher un client..."
           className="pl-9"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -47,12 +48,12 @@ export function ClientsListClient({ clients }: { clients: Client[] }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Nom</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead className="text-right">Total Invoiced</TableHead>
-                <TableHead className="text-right">Total Paid</TableHead>
-                <TableHead className="text-right">Balance Due</TableHead>
-                <TableHead>Last Activity</TableHead>
+                <TableHead className="text-right">Total facturé</TableHead>
+                <TableHead className="text-right">Total payé</TableHead>
+                <TableHead className="text-right">Solde impayé</TableHead>
+                <TableHead>Dernière activité</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -69,15 +70,15 @@ export function ClientsListClient({ clients }: { clients: Client[] }) {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    {client.totalInvoiced.toLocaleString()} MAD
+                    {formatCurrency(client.totalInvoiced)}
                   </TableCell>
                   <TableCell className="text-right text-green-600">
-                    {client.totalPaid.toLocaleString()} MAD
+                    {formatCurrency(client.totalPaid)}
                   </TableCell>
                   <TableCell className="text-right">
                     {client.balance_due > 0 ? (
                       <span className="text-red-600 font-semibold">
-                        {client.balance_due.toLocaleString()} MAD
+                        {formatCurrency(client.balance_due)}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">0 MAD</span>
@@ -91,7 +92,7 @@ export function ClientsListClient({ clients }: { clients: Client[] }) {
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    No clients found.
+                    Aucun client trouvé.
                   </TableCell>
                 </TableRow>
               )}

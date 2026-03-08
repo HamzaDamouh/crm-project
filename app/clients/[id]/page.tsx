@@ -68,15 +68,6 @@ export default async function ClientDetailPage({
     },
   })
 
-  // All entities for cross-company payment
-  const allEntities = await prisma.entity.findMany({
-    where: { is_active: true, type: { not: "supplier" } },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  })
-
-  // Unpaid invoices for this client (for cross-company payment)
-  const unpaidInvoices = entity.invoices.filter((inv) => inv.balance_due > 0)
 
   return (
     <ClientDetailClient
@@ -116,11 +107,6 @@ export default async function ClientDetailPage({
         toEntity: dt.toEntity,
         relatedInvoiceNumber: dt.related_payment?.invoice?.invoice_number || dt.related_payment?.invoice?.id ? `#${dt.related_payment.invoice.id}` : null,
         relatedInvoiceEntityName: dt.related_payment?.invoice?.entity?.name || null,
-      }))}
-      allEntities={allEntities}
-      unpaidInvoices={unpaidInvoices.map((inv) => ({
-        ...inv,
-        issue_date: inv.issue_date?.toISOString() || null,
       }))}
     />
   )

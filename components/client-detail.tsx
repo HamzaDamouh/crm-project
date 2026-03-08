@@ -2,17 +2,12 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { ArrowLeftRight, CreditCard, Search } from "lucide-react"
-import { recordPayment } from "@/app/actions/invoices"
+import { formatCurrency } from "@/lib/utils"
 
 interface EntityInfo {
   id: number; name: string; type: string
@@ -41,34 +36,29 @@ interface DebtTransferEntry {
   relatedInvoiceNumber: string | null; relatedInvoiceEntityName: string | null
 }
 
-interface AllEntity { id: number; name: string }
-
 function statusBadge(status: string, balanceDue: number, total: number) {
   if (status === "paid" || balanceDue === 0)
-    return <Badge className="bg-green-600 text-white">Paid</Badge>
+    return <Badge className="bg-green-600 text-white">Payé</Badge>
   if (balanceDue > 0 && balanceDue < total)
-    return <Badge className="bg-yellow-500 text-white">Partial</Badge>
-  return <Badge className="bg-red-600 text-white">Unpaid</Badge>
+    return <Badge className="bg-yellow-500 text-white">Partiel</Badge>
+  return <Badge className="bg-red-600 text-white">Impayé</Badge>
 }
 
 export function ClientDetailClient({
-  entity, invoices, payments, debtTransfers, allEntities, unpaidInvoices,
+  entity, invoices, payments, debtTransfers,
 }: {
   entity: EntityInfo
   invoices: Invoice[]
   payments: PaymentEntry[]
   debtTransfers: DebtTransferEntry[]
-  allEntities: AllEntity[]
-  unpaidInvoices: Invoice[]
 }) {
   const router = useRouter()
   const [tab, setTab] = React.useState<"invoices" | "payments" | "debts">("invoices")
-  const [crossPayOpen, setCrossPayOpen] = React.useState(false)
 
   const tabs = [
-    { key: "invoices" as const, label: "Invoices", count: invoices.length },
-    { key: "payments" as const, label: "Payments", count: payments.length },
-    { key: "debts" as const, label: "Debt Transfers", count: debtTransfers.length },
+    { key: "invoices" as const, label: "Factures", count: invoices.length },
+    { key: "payments" as const, label: "Paiements", count: payments.length },
+    { key: "debts" as const, label: "Transferts de dettes", count: debtTransfers.length },
   ]
 
   return (
@@ -90,9 +80,9 @@ export function ClientDetailClient({
           )}
         </div>
         <div className="text-right">
-          <p className="text-sm text-muted-foreground">Balance Due</p>
+          <p className="text-sm text-muted-foreground">Solde impayé</p>
           <p className={`text-3xl font-bold ${entity.balance_due > 0 ? "text-red-600" : "text-green-600"}`}>
-            {entity.balance_due.toLocaleString()} MAD
+            {formatCurrency(entity.balance_due)}
           </p>
         </div>
       </div>
@@ -121,13 +111,13 @@ export function ClientDetailClient({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Number</TableHead>
+                  <TableHead>Numéro</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Paid</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Payé</TableHead>
+                  <TableHead className="text-right">Solde</TableHead>
+                  <TableHead>Statut</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -137,15 +127,15 @@ export function ClientDetailClient({
                     <TableCell className="font-mono font-medium">
                       {inv.invoice_number || `#${inv.id}`}
                     </TableCell>
-                    <TableCell className="capitalize">{inv.type}</TableCell>
+                    <TableCell className="capitalize">{inv.type === "credit_note" ? "avoir" : "facture"}</TableCell>
                     <TableCell>
                       {inv.issue_date ? new Date(inv.issue_date).toLocaleDateString("fr-MA") : "—"}
                     </TableCell>
-                    <TableCell className="text-right">{inv.total.toLocaleString()} MAD</TableCell>
-                    <TableCell className="text-right text-green-600">{inv.amount_paid.toLocaleString()} MAD</TableCell>
+                    <TableCell className="text-right">{formatCurrency(inv.total)}</TableCell>
+                    <TableCell className="text-right text-green-600">{formatCurrency(inv.amount_paid)}</TableCell>
                     <TableCell className="text-right">
                       {inv.balance_due > 0 ? (
-                        <span className="text-red-600 font-semibold">{inv.balance_due.toLocaleString()} MAD</span>
+                        <span className="text-red-600 font-semibold">{formatCurrency(inv.balance_due)}</span>
                       ) : "0 MAD"}
                     </TableCell>
                     <TableCell>{statusBadge(inv.status, inv.balance_due, inv.total)}</TableCell>
@@ -153,7 +143,7 @@ export function ClientDetailClient({
                 ))}
                 {invoices.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">No invoices.</TableCell>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">Aucune facture.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -170,9 +160,9 @@ export function ClientDetailClient({
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Invoice</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Facture</TableHead>
+                  <TableHead>Méthode</TableHead>
+                  <TableHead className="text-right">Montant</TableHead>
                   <TableHead>Note</TableHead>
                 </TableRow>
               </TableHeader>
@@ -186,20 +176,20 @@ export function ClientDetailClient({
                       {p.invoiceNumber || "N/A"}
                       {p.invoiceEntityId && p.invoiceEntityId !== entity.id && (
                         <Badge variant="outline" className="ml-2 text-xs border-blue-400 text-blue-600">
-                          On behalf of {p.invoiceEntityName}
+                          Pour le compte de {p.invoiceEntityName}
                         </Badge>
                       )}
                     </TableCell>
                     <TableCell className="capitalize">{p.method}</TableCell>
-                    <TableCell className="text-right font-medium">{p.amount.toLocaleString()} MAD</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(p.amount)}</TableCell>
                     <TableCell>
-                      {p.cheque_number && <span className="text-xs text-muted-foreground">Cheque #{p.cheque_number}</span>}
+                      {p.cheque_number && <span className="text-xs text-muted-foreground">Chèque n°{p.cheque_number}</span>}
                     </TableCell>
                   </TableRow>
                 ))}
                 {payments.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">No payments.</TableCell>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">Aucun paiement.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -217,7 +207,7 @@ export function ClientDetailClient({
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Details</TableHead>
+                  <TableHead>Détails</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -228,25 +218,25 @@ export function ClientDetailClient({
                       <TableCell className="w-32">{new Date(dt.created_at).toLocaleDateString("fr-MA")}</TableCell>
                       <TableCell className="w-32">
                         {isGiver ? (
-                          <Badge className="bg-red-600 text-white">Deducted</Badge>
+                          <Badge className="bg-red-600 text-white">Déduit</Badge>
                         ) : (
-                          <Badge className="bg-green-600 text-white">Received</Badge>
+                          <Badge className="bg-green-600 text-white">Reçu</Badge>
                         )}
                       </TableCell>
                       <TableCell>
                         {isGiver ? (
                           <span>
-                            <span className="font-semibold">{dt.amount.toLocaleString()} MAD</span> deducted — used to pay{" "}
+                            <span className="font-semibold">{formatCurrency(dt.amount)}</span> déduit — utilisé pour payer la facture{" "}
                             {dt.relatedInvoiceEntityName ? (
                               <span className="font-medium">{dt.relatedInvoiceEntityName}</span>
                             ) : (
                               <span className="font-medium">{dt.toEntity.name}</span>
                             )}{" "}
-                            invoice {dt.relatedInvoiceNumber || "—"}
+                            {dt.relatedInvoiceNumber || "—"}
                           </span>
                         ) : (
                           <span>
-                            <span className="font-semibold">{dt.amount.toLocaleString()} MAD</span> received from{" "}
+                            <span className="font-semibold">{formatCurrency(dt.amount)}</span> reçu de{" "}
                             <span className="font-medium">{dt.fromEntity.name}</span>
                             {dt.note && <span className="text-muted-foreground text-sm ml-2">({dt.note})</span>}
                           </span>
@@ -257,7 +247,7 @@ export function ClientDetailClient({
                 })}
                 {debtTransfers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground py-8">No debt transfers.</TableCell>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground py-8">Aucun transfert de dette.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
