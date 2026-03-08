@@ -7,8 +7,184 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Test {
-  id        Int      @id @default(autoincrement())
-  message   String
-  createdAt DateTime @default(now())
+model Entity {
+  id           Int      @id @default(autoincrement())
+  type         String   // 'company'|'individual'|'supplier'
+  name         String
+  phone        String?
+  email        String?
+  address      String?
+  ice          String?
+  credit_limit Float?
+  notes        String?
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now())
+
+  // Relations
+  invoices          Invoice[]
+  paymentsMade      Payment[]       @relation("PaymentsMade")
+  debtTransfersFrom DebtTransfer[]  @relation("DebtTransferredFrom")
+  debtTransfersTo   DebtTransfer[]  @relation("DebtTransferredTo")
+  purchaseOrders    PurchaseOrder[] // Assumes a supplier is an entity
+}
+
+model Category {
+  id        Int    @id @default(autoincrement())
+  name      String
+  parent_id Int?
+
+  parent   Category?  @relation("SubCategories", fields: [parent_id], references: [id])
+  children Category[] @relation("SubCategories")
+  products Product[]
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  category_id Int?
+  name        String
+  reference   String?
+  description String?
+  unit        String?
+  stock_qty   Float    @default(0)
+  stock_min   Float    @default(0)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  category           Category?           @relation(fields: [category_id], references: [id])
+  priceTiers         PriceTier[]
+  purchaseOrderLines PurchaseOrderLine[]
+  stockMovements     StockMovement[]
+  invoiceLines       InvoiceLine[]
+  dailySalesLogs     DailySalesLog[]
+}
+
+model PriceTier {
+  id         Int     @id @default(autoincrement())
+  product_id Int
+  min_qty    Float
+  max_qty    Float?
+  unit_price Float
+  note       String?
+
+  product Product @relation(fields: [product_id], references: [id])
+}
+
+model PurchaseOrder {
+  id          Int       @id @default(autoincrement())
+  supplier_id Int
+  reference   String?
+  status      String    // 'draft'|'sent'|'received'|'cancelled'
+  ordered_at  DateTime?
+  expected_at DateTime?
+  notes       String?
+  created_at  DateTime  @default(now())
+
+  supplier Entity              @relation(fields: [supplier_id], references: [id])
+  lines    PurchaseOrderLine[]
+}
+
+model PurchaseOrderLine {
+  id                Int   @id @default(autoincrement())
+  purchase_order_id Int
+  product_id        Int
+  qty_ordered       Float
+  qty_received      Float @default(0)
+  unit_cost         Float
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+  product       Product       @relation(fields: [product_id], references: [id])
+}
+
+model StockMovement {
+  id             Int      @id @default(autoincrement())
+  product_id     Int
+  movement_type  String   // 'in'|'out'|'adjustment'
+  qty            Float
+  reference_type String?  // 'purchase_order'|'invoice'|'manual'
+  reference_id   Int?
+  note           String?
+  created_at     DateTime @default(now())
+
+  product Product @relation(fields: [product_id], references: [id])
+}
+
+model Invoice {
+  id             Int       @id @default(autoincrement())
+  entity_id      Int
+  type           String    // 'quote'|'invoice'|'credit_note'
+  status         String    // 'draft'|'open'|'paid'|'void'
+  invoice_number String?
+  issue_date     DateTime?
+  due_date       DateTime?
+  subtotal       Float
+  tax_rate       Float     @default(0)
+  tax_amount     Float     @default(0)
+  total          Float
+  amount_paid    Float     @default(0)
+  balance_due    Float
+  notes          String?
+  is_locked      Boolean   @default(false)
+  created_at     DateTime  @default(now())
+
+  entity   Entity        @relation(fields: [entity_id], references: [id])
+  lines    InvoiceLine[]
+  payments Payment[]
+}
+
+model InvoiceLine {
+  id              Int     @id @default(autoincrement())
+  invoice_id      Int
+  product_id      Int?
+  description     String?
+  qty             Float
+  catalog_price   Float
+  override_price  Float?
+  override_reason String?
+  unit_price      Float
+  line_total      Float
+
+  invoice Invoice  @relation(fields: [invoice_id], references: [id])
+  product Product? @relation(fields: [product_id], references: [id])
+}
+
+model Payment {
+  id                Int       @id @default(autoincrement())
+  invoice_id        Int?
+  paid_by_entity_id Int
+  method            String    // 'cash'|'cheque'|'transfer'
+  amount            Float
+  cheque_number     String?
+  payment_date      DateTime?
+  notes             String?
+  created_at        DateTime  @default(now())
+
+  invoice      Invoice? @relation(fields: [invoice_id], references: [id])
+  paidByEntity Entity   @relation("PaymentsMade", fields: [paid_by_entity_id], references: [id])
+}
+
+model DebtTransfer {
+  id                 Int      @id @default(autoincrement())
+  from_entity_id     Int
+  to_entity_id       Int
+  amount             Float
+  related_payment_id Int?
+  note               String?
+  created_at         DateTime @default(now())
+
+  fromEntity Entity @relation("DebtTransferredFrom", fields: [from_entity_id], references: [id])
+  toEntity   Entity @relation("DebtTransferredTo", fields: [to_entity_id], references: [id])
+}
+
+model DailySalesLog {
+  id         Int      @id @default(autoincrement())
+  log_date   DateTime
+  product_id Int
+  qty        Float
+  unit_price Float
+  total      Float
+  note       String?
+  invoiced   Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  product Product @relation(fields: [product_id], references: [id])
 }
