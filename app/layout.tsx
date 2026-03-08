@@ -15,10 +15,8 @@ const geistMono = localFont({
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
-
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Hamza Distribution CRM",
@@ -31,19 +29,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
+    <html lang="en" className={cn("font-sans", geistSans.variable)}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SidebarProvider defaultOpen>
           <AppSidebar />
-          <main className="flex-1 overflow-hidden flex flex-col w-full min-h-screen relative">
-            <div className="flex h-12 items-center px-4 w-full">
+          <main className="flex-1 flex flex-col min-h-screen" style={{ marginLeft: "16rem" }}>
+            <div className="flex h-12 items-center px-4 border-b">
               <SidebarTrigger />
             </div>
             {children}
           </main>
         </SidebarProvider>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );
