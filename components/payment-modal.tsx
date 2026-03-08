@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Search } from "lucide-react"
 import { recordPayment } from "@/app/actions/invoices"
+import { formatCurrency } from "@/lib/utils"
 
 interface Entity {
   id: number
@@ -61,7 +62,7 @@ export function PaymentModal({
 
   React.useEffect(() => {
     if (isDebtTransfer && selectedEntity) {
-      setNotes(`Paid via ${selectedEntity.name} account`)
+      setNotes(`Payé via le compte de ${selectedEntity.name}`)
     }
   }, [isDebtTransfer, selectedEntity])
 
@@ -85,7 +86,7 @@ export function PaymentModal({
         toast.error(result.message)
       }
     } catch {
-      toast.error("An unexpected error occurred.")
+      toast.error("Erreur inattendue.")
     } finally {
       setSubmitting(false)
     }
@@ -94,15 +95,15 @@ export function PaymentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-semibold mb-4">Record Payment</h3>
+        <h3 className="text-lg font-semibold mb-4">Enregistrer un paiement</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Balance due: <span className="font-bold text-red-600">{balanceDue.toLocaleString()} MAD</span>
+          Solde impayé : <span className="font-bold text-red-600">{formatCurrency(balanceDue)}</span>
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Amount */}
           <div>
-            <Label htmlFor="pay-amount">Amount (MAD)</Label>
+            <Label htmlFor="pay-amount">Montant (MAD)</Label>
             <Input
               id="pay-amount"
               type="number"
@@ -117,24 +118,24 @@ export function PaymentModal({
 
           {/* Method */}
           <div>
-            <Label htmlFor="pay-method">Method</Label>
+            <Label htmlFor="pay-method">Méthode</Label>
             <select
               id="pay-method"
               value={method}
               onChange={(e) => setMethod(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="cash">Cash</option>
-              <option value="cheque">Cheque</option>
-              <option value="transfer">Transfer</option>
-              <option value="debt_transfer">Deduct from another client's balance</option>
+              <option value="cash">Espèces</option>
+              <option value="cheque">Chèque</option>
+              <option value="transfer">Virement</option>
+              <option value="debt_transfer">Déduire du solde d&apos;un autre client</option>
             </select>
           </div>
 
           {/* Cheque Number */}
           {method === "cheque" && (
             <div>
-              <Label htmlFor="pay-cheque">Cheque Number</Label>
+              <Label htmlFor="pay-cheque">Numéro de chèque</Label>
               <Input
                 id="pay-cheque"
                 value={chequeNumber}
@@ -147,12 +148,12 @@ export function PaymentModal({
           {/* Paid By (entity selector) */}
           {isDebtTransfer ? (
             <div>
-              <Label>Deduct from:</Label>
+              <Label>Déduire de :</Label>
               <div className="relative" ref={entityRef}>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search clients..."
+                    placeholder="Rechercher un client..."
                     className="pl-9"
                     value={entityDropdownOpen ? entitySearch : (selectedEntity?.name || "")}
                     onChange={(e) => {
@@ -183,7 +184,7 @@ export function PaymentModal({
                         <span>{entity.name}</span>
                         {entity.balance_due !== undefined && entity.balance_due > 0 && (
                           <span className="text-red-600 text-xs font-semibold">
-                            {entity.balance_due.toLocaleString()} MAD due
+                            {formatCurrency(entity.balance_due)} dû
                           </span>
                         )}
                       </button>
@@ -193,7 +194,7 @@ export function PaymentModal({
               </div>
               {selectedEntity && selectedEntity.balance_due !== undefined && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Available to deduct: <span className="font-medium">{selectedEntity.balance_due.toLocaleString()} MAD</span>
+                  Disponible pour déduction : <span className="font-medium">{formatCurrency(selectedEntity.balance_due)}</span>
                 </p>
               )}
             </div>
@@ -201,7 +202,7 @@ export function PaymentModal({
 
           {/* Date */}
           <div>
-            <Label htmlFor="pay-date">Payment Date</Label>
+            <Label htmlFor="pay-date">Date de paiement</Label>
             <Input
               id="pay-date"
               type="date"
@@ -213,7 +214,7 @@ export function PaymentModal({
 
           {/* Notes */}
           <div>
-            <Label htmlFor="pay-notes">Notes (optional)</Label>
+            <Label htmlFor="pay-notes">Notes (facultatif)</Label>
             <Input
               id="pay-notes"
               value={notes}
@@ -224,10 +225,10 @@ export function PaymentModal({
           {/* Buttons */}
           <div className="flex gap-3 justify-end pt-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-              Cancel
+              Annuler
             </Button>
             <Button type="submit" disabled={submitting || amount <= 0 || (isDebtTransfer && (!paidByEntityId || paidByEntityId === defaultEntityId))}>
-              {submitting ? "Processing..." : "Record Payment"}
+              {submitting ? "Traitement..." : "Enregistrer un paiement"}
             </Button>
           </div>
         </form>

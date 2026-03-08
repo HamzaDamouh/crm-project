@@ -23,9 +23,9 @@ interface Movement {
 }
 
 function stockStatus(qty: number, min: number) {
-  if (qty < min) return { label: "Critical", className: "bg-red-600 text-white" }
-  if (qty === min) return { label: "Low", className: "bg-yellow-500 text-white" }
-  return { label: "In Stock", className: "bg-green-600 text-white" }
+  if (qty < min) return { label: "Critique", className: "bg-red-600 text-white" }
+  if (qty === min) return { label: "Bas", className: "bg-yellow-500 text-white" }
+  return { label: "En stock", className: "bg-green-600 text-white" }
 }
 
 function stockCellColor(qty: number, min: number) {
@@ -64,7 +64,7 @@ export function StockClient({
 
   return (
     <div className="flex-1 p-6 space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Stock &amp; Inventory</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Stock et Inventaire</h1>
 
       {/* SECTION 1: Alerts */}
       {alerts.length > 0 && (
@@ -72,7 +72,7 @@ export function StockClient({
           <CardHeader className="cursor-pointer py-3" onClick={() => setAlertsOpen(!alertsOpen)}>
             <CardTitle className="text-lg flex items-center gap-2 text-red-700">
               <AlertTriangle className="h-5 w-5" />
-              Stock Alerts ({alerts.length})
+              Alertes de stock ({alerts.length})
               {alertsOpen ? <ChevronDown className="h-4 w-4 ml-auto" /> : <ChevronRight className="h-4 w-4 ml-auto" />}
             </CardTitle>
           </CardHeader>
@@ -90,7 +90,7 @@ export function StockClient({
                         <p className="font-semibold text-sm">{p.name}</p>
                         {p.reference && <p className="text-xs text-muted-foreground">{p.reference}</p>}
                       </div>
-                      <Badge className="bg-red-600 text-white text-xs">ORDER NOW</Badge>
+                      <Badge className="bg-red-600 text-white text-xs">COMMANDER</Badge>
                     </div>
                     <div className="mt-2 text-sm">
                       <span className="text-red-600 font-bold">{p.stock_qty}</span>
@@ -108,11 +108,11 @@ export function StockClient({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center justify-between">
-            <span>Full Inventory</span>
+            <span>Inventaire complet</span>
             <div className="relative w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name or SKU..."
+                placeholder="Rechercher par nom ou SKU..."
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -125,12 +125,12 @@ export function StockClient({
             <TableHeader>
               <TableRow>
                 <TableHead>SKU</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-center">Stock Qty</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead className="text-center">Min Stock</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Nom</TableHead>
+                <TableHead>Catégorie</TableHead>
+                <TableHead className="text-center">Qté en stock</TableHead>
+                <TableHead>Unité</TableHead>
+                <TableHead className="text-center">Stock min</TableHead>
+                <TableHead>Statut</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -159,7 +159,7 @@ export function StockClient({
               {filtered.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                    No products found.
+                    Aucun produit trouvé.
                   </TableCell>
                 </TableRow>
               )}
@@ -183,7 +183,7 @@ export function StockClient({
 
           <div className="p-4 border-b bg-muted/30">
             <div className="flex justify-between text-sm">
-              <span>Current Stock</span>
+              <span>Stock actuel</span>
               <span className={`font-bold ${stockCellColor(selectedProduct.stock_qty, selectedProduct.stock_min)}`}>
                 {selectedProduct.stock_qty} {selectedProduct.unit}
               </span>
@@ -195,9 +195,9 @@ export function StockClient({
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
-            <h4 className="text-sm font-semibold text-muted-foreground mb-3">Movement History</h4>
+            <h4 className="text-sm font-semibold text-muted-foreground mb-3">Historique des mouvements</h4>
             {selectedMovements.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No movements recorded.</p>
+              <p className="text-sm text-muted-foreground text-center py-4">Aucun mouvement enregistré.</p>
             ) : (
               <div className="space-y-2">
                 {selectedMovements.map((m) => (
@@ -217,7 +217,7 @@ export function StockClient({
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {m.note || (m.reference_type ? `${m.reference_type} #${m.reference_id}` : "No details")}
+                        {m.note || (m.reference_type ? `${m.reference_type} n°${m.reference_id}` : "Aucun détail")}
                       </p>
                     </div>
                   </div>
