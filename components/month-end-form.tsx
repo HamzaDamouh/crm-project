@@ -19,6 +19,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { CalendarCheck, Search, FileText, AlertTriangle } from "lucide-react"
 import { generateConsolidatedInvoice } from "@/app/actions/month-end"
+import { formatCurrency } from "@/lib/utils"
 
 interface PendingEntry {
   id: number
@@ -124,13 +125,13 @@ export function MonthEndClientComponent({
       }))
       const result = await generateConsolidatedInvoice(selectedEntityId, lines)
       if (result.success && result.invoiceId) {
-        toast.success(`Invoice ${result.invoiceNumber} generated!`)
+        toast.success(`Facture consolidée INV-${result.invoiceId} créée avec succès`)
         router.push(`/invoices/${result.invoiceId}`)
       } else {
-        toast.error("Failed to generate invoice.")
+        toast.error("Échec de la génération de la facture.")
       }
     } catch {
-      toast.error("An unexpected error occurred.")
+      toast.error("Erreur inattendue.")
     } finally {
       setSubmitting(false)
     }
@@ -145,10 +146,10 @@ export function MonthEndClientComponent({
         <CalendarCheck className="h-8 w-8 text-primary" />
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Month-End Closing — {currentMonth}
+            Clôture mensuelle — {currentMonth}
           </h1>
           <p className="text-muted-foreground">
-            Process pending transactions into a consolidated invoice
+            Traiter les transactions en attente en une facture consolidée
           </p>
         </div>
       </div>
@@ -159,10 +160,10 @@ export function MonthEndClientComponent({
           <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
           <div>
             <p className="font-semibold text-amber-800">
-              {entries.length} unprocessed transaction{entries.length !== 1 ? "s" : ""}
+              {entries.length} transaction(s) non traitée(s)
             </p>
             <p className="text-sm text-amber-700">
-              {selectedEntryIds.size} transaction{selectedEntryIds.size !== 1 ? "s" : ""} selected — Total: {runningTotal.toLocaleString()} MAD (before tax)
+              {selectedEntryIds.size} transaction(s) sélectionnée(s) — Total : {formatCurrency(runningTotal)} (hors taxe)
             </p>
           </div>
         </CardContent>
@@ -172,10 +173,10 @@ export function MonthEndClientComponent({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            Step 1 — Review &amp; Adjust Prices
+            Étape 1 — Réviser et ajuster les prix
             {pricesEdited > 0 && (
               <Badge variant="outline" className="ml-2 border-blue-400 text-blue-600">
-                {pricesEdited} price{pricesEdited > 1 ? "s" : ""} modified
+                {pricesEdited} prix modifié(s)
               </Badge>
             )}
           </CardTitle>
@@ -183,7 +184,7 @@ export function MonthEndClientComponent({
         <CardContent>
           {entries.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
-              No pending transactions to process.
+              Aucune transaction en attente à traiter.
             </p>
           ) : (
             <Table>
@@ -195,14 +196,14 @@ export function MonthEndClientComponent({
                         entries.length > 0 && selectedEntryIds.size === entries.length
                       }
                       onCheckedChange={toggleAll}
-                      aria-label="Select all"
+                      aria-label="Sélectionner tout"
                     />
                   </TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="text-center">Qty</TableHead>
-                  <TableHead className="w-40">Unit Price (MAD)</TableHead>
-                  <TableHead className="text-right">Line Total</TableHead>
+                  <TableHead>Produit</TableHead>
+                  <TableHead className="text-center">Qté</TableHead>
+                  <TableHead className="w-40">Prix unitaire (MAD)</TableHead>
+                  <TableHead className="text-right">Total ligne</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -253,7 +254,7 @@ export function MonthEndClientComponent({
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {getLineTotal(entry).toLocaleString()} MAD
+                        {formatCurrency(getLineTotal(entry))}
                       </TableCell>
                     </TableRow>
                   )
@@ -261,10 +262,10 @@ export function MonthEndClientComponent({
                 {/* Running total row */}
                 <TableRow className="bg-muted/30 font-bold">
                   <TableCell colSpan={5} className="text-right">
-                    Subtotal (Selected)
+                    Sous-total (Sélection)
                   </TableCell>
                   <TableCell className="text-right">
-                    {runningTotal.toLocaleString()} MAD
+                    {formatCurrency(runningTotal)}
                   </TableCell>
                 </TableRow>
                 <TableRow className="font-medium">
@@ -272,7 +273,7 @@ export function MonthEndClientComponent({
                     TVA (20%)
                   </TableCell>
                   <TableCell className="text-right text-sm">
-                    {taxAmount.toLocaleString()} MAD
+                    {formatCurrency(taxAmount)}
                   </TableCell>
                 </TableRow>
                 <TableRow className="bg-muted/50 font-bold text-lg">
@@ -280,7 +281,7 @@ export function MonthEndClientComponent({
                     Total
                   </TableCell>
                   <TableCell className="text-right">
-                    {grandTotal.toLocaleString()} MAD
+                    {formatCurrency(grandTotal)}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -292,15 +293,15 @@ export function MonthEndClientComponent({
       {/* Step 2: Client Selector */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Step 2 — Select Client to Bill</CardTitle>
+          <CardTitle className="text-lg">Étape 2 — Sélectionner le client</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="relative max-w-md" ref={entityRef}>
-            <Label className="mb-2 block text-sm">Bill To</Label>
+            <Label className="mb-2 block text-sm">Facturer à</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search clients..."
+                placeholder="Rechercher un client..."
                 className="pl-9"
                 value={entityDropdownOpen ? entitySearch : (selectedEntity?.name || "")}
                 onChange={(e) => {
@@ -345,7 +346,7 @@ export function MonthEndClientComponent({
           onClick={handleGenerate}
         >
           <FileText className="h-4 w-4 mr-2" />
-          {submitting ? "Generating..." : "Generate Consolidated Invoice"}
+          {submitting ? "Génération..." : "Générer la facture consolidée"}
         </Button>
       </div>
     </div>

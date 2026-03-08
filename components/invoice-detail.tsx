@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PaymentModal } from "@/components/payment-modal"
 import { Printer, CreditCard } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
 
 interface InvoiceLine {
   id: number
@@ -61,12 +62,12 @@ interface AllEntity {
 
 function statusBadge(status: string, balanceDue: number, total: number) {
   if (status === "paid" || balanceDue === 0)
-    return <Badge className="bg-green-600 text-white">Paid</Badge>
+    return <Badge className="bg-green-600 text-white">Payé</Badge>
   if (balanceDue > 0 && balanceDue < total)
-    return <Badge className="bg-yellow-500 text-white">Partial</Badge>
+    return <Badge className="bg-yellow-500 text-white">Partiel</Badge>
   if (status === "draft")
-    return <Badge className="bg-gray-500 text-white">Draft</Badge>
-  return <Badge className="bg-red-600 text-white">Unpaid</Badge>
+    return <Badge className="bg-gray-500 text-white">Brouillon</Badge>
+  return <Badge className="bg-red-600 text-white">Impayé</Badge>
 }
 
 export function InvoiceDetailClient({
@@ -78,7 +79,7 @@ export function InvoiceDetailClient({
 }) {
   const [paymentOpen, setPaymentOpen] = React.useState(false)
 
-  const typeLabel = invoice.type === "credit_note" ? "Credit Note" : "Invoice"
+  const typeLabel = invoice.type === "credit_note" ? "Avoir" : "Facture"
 
   return (
     <>
@@ -95,11 +96,11 @@ export function InvoiceDetailClient({
         {/* Action buttons */}
         <div className="no-print flex gap-3 mb-6 justify-end">
           <Button variant="outline" onClick={() => window.print()}>
-            <Printer className="h-4 w-4 mr-2" /> Print / Export PDF
+            <Printer className="h-4 w-4 mr-2" /> Imprimer / Exporter PDF
           </Button>
           {invoice.balance_due > 0 && (
             <Button onClick={() => setPaymentOpen(true)}>
-              <CreditCard className="h-4 w-4 mr-2" /> Record Payment
+              <CreditCard className="h-4 w-4 mr-2" /> Enregistrer un paiement
             </Button>
           )}
         </div>
@@ -122,7 +123,7 @@ export function InvoiceDetailClient({
             )}
             {invoice.due_date && (
               <p className="text-sm text-muted-foreground">
-                Due: {new Date(invoice.due_date).toLocaleDateString("fr-MA")}
+                Échéance : {new Date(invoice.due_date).toLocaleDateString("fr-MA")}
               </p>
             )}
             <div className="mt-2">{statusBadge(invoice.status, invoice.balance_due, invoice.total)}</div>
@@ -149,8 +150,8 @@ export function InvoiceDetailClient({
           <thead>
             <tr className="border-b-2 border-foreground/20">
               <th className="text-left py-2 font-medium">Description</th>
-              <th className="text-center py-2 font-medium w-20">Qty</th>
-              <th className="text-right py-2 font-medium w-32">Unit Price</th>
+              <th className="text-center py-2 font-medium w-20">Qté</th>
+              <th className="text-right py-2 font-medium w-32">Prix unitaire</th>
               <th className="text-right py-2 font-medium w-32">Total</th>
             </tr>
           </thead>
@@ -177,50 +178,49 @@ export function InvoiceDetailClient({
                   {line.override_price !== null && line.override_price !== line.catalog_price ? (
                     <div>
                       <span className="line-through text-muted-foreground text-xs">
-                        {line.catalog_price.toLocaleString()} MAD
+                        {formatCurrency(line.catalog_price)}
                       </span>
                       <br />
                       <span className="text-blue-600 font-medium">
-                        {line.unit_price.toLocaleString()} MAD
+                        {formatCurrency(line.unit_price)}
                       </span>
                     </div>
                   ) : (
-                    `${line.unit_price.toLocaleString()} MAD`
+                    formatCurrency(line.unit_price)
                   )}
                 </td>
                 <td className="py-3 text-right font-medium">
-                  {line.line_total.toLocaleString()} MAD
+                  {formatCurrency(line.line_total)}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {/* Summary */}
         <div className="flex justify-end mb-8">
           <div className="w-64 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal</span>
-              <span>{invoice.subtotal.toLocaleString()} MAD</span>
+              <span className="text-muted-foreground">Sous-total</span>
+              <span>{formatCurrency(invoice.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">TVA ({invoice.tax_rate}%)</span>
-              <span>{invoice.tax_amount.toLocaleString()} MAD</span>
+              <span>{formatCurrency(invoice.tax_amount)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold border-t pt-2">
               <span>Total</span>
-              <span>{invoice.total.toLocaleString()} MAD</span>
+              <span>{formatCurrency(invoice.total)}</span>
             </div>
             {invoice.amount_paid > 0 && (
               <div className="flex justify-between text-sm text-green-600">
-                <span>Paid</span>
-                <span>–{invoice.amount_paid.toLocaleString()} MAD</span>
+                <span>Payé</span>
+                <span>–{formatCurrency(invoice.amount_paid)}</span>
               </div>
             )}
             {invoice.balance_due > 0 && (
               <div className="flex justify-between text-base font-bold text-red-600 border-t pt-2">
-                <span>Balance Due</span>
-                <span>{invoice.balance_due.toLocaleString()} MAD</span>
+                <span>Solde impayé</span>
+                <span>{formatCurrency(invoice.balance_due)}</span>
               </div>
             )}
           </div>
@@ -229,14 +229,14 @@ export function InvoiceDetailClient({
         {/* Payment History */}
         {invoice.payments.length > 0 && (
           <div className="mb-8">
-            <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Payment History</h3>
+            <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Historique des paiements</h3>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-1">Date</th>
-                  <th className="text-left py-1">Method</th>
-                  <th className="text-left py-1">Paid By</th>
-                  <th className="text-right py-1">Amount</th>
+                  <th className="text-left py-1">Méthode</th>
+                  <th className="text-left py-1">Payé par</th>
+                  <th className="text-right py-1">Montant</th>
                 </tr>
               </thead>
               <tbody>
@@ -250,7 +250,7 @@ export function InvoiceDetailClient({
                     <td className="py-1 capitalize">{p.method}</td>
                     <td className="py-1">{p.paidByEntity.name}</td>
                     <td className="py-1 text-right font-medium">
-                      {p.amount.toLocaleString()} MAD
+                      {formatCurrency(p.amount)}
                     </td>
                   </tr>
                 ))}
