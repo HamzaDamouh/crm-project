@@ -16,6 +16,7 @@ model Entity {
   address      String?
   ice          String?
   credit_limit Float?
+  balance_due  Float    @default(0)
   notes        String?
   is_active    Boolean  @default(true)
   created_at   DateTime @default(now())
