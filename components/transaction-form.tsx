@@ -212,7 +212,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
         total,
       })
       if (result.success) {
-        toast.success(result.message)
+        toast.success(`${validLines.length} transaction${validLines.length > 1 ? 's' : ''} saved — visible in Month-End`)
         setLines([emptyLine()])
       } else {
         toast.error(result.message)
@@ -240,7 +240,10 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
         taxAmount,
         total,
       })
-      if (result.success) {
+      if (result.success && result.invoiceId) {
+        toast.success(result.message)
+        router.push(`/invoices/${result.invoiceId}`)
+      } else if (result.success) {
         toast.success(result.message)
         router.push(`/invoices`)
       } else {
@@ -337,9 +340,9 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
               </div>
             )}
             {selectedEntity && selectedEntity.balance_due > 0 && !entityDropdownOpen && (
-              <p className="mt-2 text-sm text-red-600 font-medium">
+              <div className="mt-2 text-sm text-yellow-700 bg-yellow-50 px-3 py-2 rounded-md border border-yellow-200">
                 ⚠ Outstanding balance: {selectedEntity.balance_due.toLocaleString()} MAD
-              </p>
+              </div>
             )}
           </div>
         </CardContent>

@@ -48,6 +48,7 @@ export async function saveAsTransaction(data: TransactionData) {
     for (const line of data.lines) {
       const log = await prisma.dailySalesLog.create({
         data: {
+          entity_id: data.entityId > 0 ? data.entityId : null,
           log_date: logDate,
           product_id: line.productId,
           qty: line.qty,
@@ -122,8 +123,25 @@ export async function generateInvoice(data: TransactionData) {
       },
     })
 
-    // Update stock
+    // Update stock via stock movement
     await updateStock(data.lines, "invoice", invoice.id)
+
+    // Log the daily sales with invoiced: true
+    const logDate = new Date()
+    for (const line of data.lines) {
+      await prisma.dailySalesLog.create({
+        data: {
+          entity_id: data.entityId > 0 ? data.entityId : null,
+          log_date: logDate,
+          product_id: line.productId,
+          qty: line.qty,
+          unit_price: line.unitPrice,
+          total: line.lineTotal,
+          note: `Invoiced directly: ${invoice.invoice_number}`,
+          invoiced: true,
+        },
+      })
+    }
 
     revalidatePath("/dashboard")
     revalidatePath("/invoices")

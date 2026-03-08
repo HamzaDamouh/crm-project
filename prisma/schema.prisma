@@ -27,6 +27,7 @@ model Entity {
   debtTransfersFrom DebtTransfer[]  @relation("DebtTransferredFrom")
   debtTransfersTo   DebtTransfer[]  @relation("DebtTransferredTo")
   purchaseOrders    PurchaseOrder[] // Assumes a supplier is an entity
+  dailySalesLogs    DailySalesLog[]
 }
 
 model Category {
@@ -180,6 +181,7 @@ model DebtTransfer {
 
 model DailySalesLog {
   id         Int      @id @default(autoincrement())
+  entity_id  Int?
   log_date   DateTime
   product_id Int
   qty        Float
@@ -190,4 +192,5 @@ model DailySalesLog {
   created_at DateTime @default(now())
 
   product Product @relation(fields: [product_id], references: [id])
+  entity  Entity? @relation(fields: [entity_id], references: [id])
 }
