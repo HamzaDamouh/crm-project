@@ -94,14 +94,35 @@ async function main() {
   const startMs = new Date('2024-10-01').getTime()
   const endMs = new Date('2024-12-31').getTime()
   
-  // Specific Unpaid Invoices for Chantier Atlas SARL summing to ~50k MAD
+  // Specific Unpaid Invoices for Chantier Atlas SARL
   const atlasInvoicesData = [
-    { num: 'INV-2024-001', amount: 18500, dateMs: startMs + 1000000000 },
-    { num: 'INV-2024-002', amount: 20000, dateMs: startMs + 2000000000 },
-    { num: 'INV-2024-003', amount: 11500, dateMs: startMs + 3000000000 }
+    { num: 'INV-2024-001', dateMs: startMs + 1000000000 },
+    { num: 'INV-2024-002', dateMs: startMs + 2000000000 },
+    { num: 'INV-2024-003', dateMs: startMs + 3000000000 }
   ]
 
   for (const invoice of atlasInvoicesData) {
+    const numLines = Math.floor(Math.random() * 2) + 2; // 2 to 3
+    const lines = [];
+    let subtotal = 0;
+    for (let j = 0; j < numLines; j++) {
+      const pIdx = Math.floor(Math.random() * productsMap.length);
+      const prod = productsMap[pIdx];
+      const pid = productIds[pIdx];
+      const qty = Math.floor(Math.random() * 5) + 1;
+      const lineTotal = qty * prod.price;
+      subtotal += lineTotal;
+      lines.push({
+        product_id: pid,
+        qty: qty,
+        catalog_price: prod.price,
+        unit_price: prod.price,
+        line_total: lineTotal
+      });
+    }
+    const tax_amount = Math.round(subtotal * 0.2 * 100) / 100;
+    const total = subtotal + tax_amount;
+
     await prisma.invoice.create({
       data: {
         entity_id: chantierAtlas.id,
@@ -110,10 +131,13 @@ async function main() {
         invoice_number: invoice.num,
         issue_date: new Date(invoice.dateMs),
         due_date: new Date(invoice.dateMs + 86400000 * 30),
-        subtotal: invoice.amount,
-        total: invoice.amount,
-        balance_due: invoice.amount,
-        created_at: new Date(invoice.dateMs)
+        subtotal: subtotal,
+        tax_rate: 20,
+        tax_amount: tax_amount,
+        total: total,
+        balance_due: total,
+        created_at: new Date(invoice.dateMs),
+        lines: { create: lines }
       }
     })
   }
@@ -121,7 +145,26 @@ async function main() {
   // Generate remaining random invoices for Bati-Pro
   for (let i = 4; i <= 25; i++) {
     const randomMs = startMs + Math.random() * (endMs - startMs)
-    const amount = Math.floor(Math.random() * 5000) + 500
+    const numLines = Math.floor(Math.random() * 2) + 2; // 2 to 3
+    const lines = [];
+    let subtotal = 0;
+    for (let j = 0; j < numLines; j++) {
+      const pIdx = Math.floor(Math.random() * productsMap.length);
+      const prod = productsMap[pIdx];
+      const pid = productIds[pIdx];
+      const qty = Math.floor(Math.random() * 5) + 1;
+      const lineTotal = qty * prod.price;
+      subtotal += lineTotal;
+      lines.push({
+        product_id: pid,
+        qty: qty,
+        catalog_price: prod.price,
+        unit_price: prod.price,
+        line_total: lineTotal
+      });
+    }
+    const tax_amount = Math.round(subtotal * 0.2 * 100) / 100;
+    const total = subtotal + tax_amount;
     
     await prisma.invoice.create({
       data: {
@@ -130,11 +173,14 @@ async function main() {
         status: 'paid',
         invoice_number: `INV-2024-${i.toString().padStart(3, '0')}`,
         issue_date: new Date(randomMs),
-        subtotal: amount,
-        total: amount,
-        amount_paid: amount,
+        subtotal: subtotal,
+        tax_rate: 20,
+        tax_amount: tax_amount,
+        total: total,
+        amount_paid: total,
         balance_due: 0,
-        created_at: new Date(randomMs)
+        created_at: new Date(randomMs),
+        lines: { create: lines }
       }
     })
   }
