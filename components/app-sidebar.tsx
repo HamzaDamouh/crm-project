@@ -26,16 +26,16 @@ import {
 } from "@/components/ui/sidebar"
 
 const navItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Tableau de bord", url: "/dashboard", icon: LayoutDashboard },
   { title: "Transactions", url: "/transactions", icon: ShoppingCart },
-  { title: "Invoices", url: "/invoices", icon: FileText },
+  { title: "Factures", url: "/invoices", icon: FileText },
   { title: "Stock", url: "/stock", icon: Package },
   { title: "Clients", url: "/clients", icon: Users },
-  { title: "Month-End", url: "/month-end", icon: CalendarCheck },
-  { title: "Payments", url: "/payments", icon: CreditCard },
+  { title: "Clôture mensuelle", url: "/month-end", icon: CalendarCheck },
+  { title: "Paiements", url: "/payments", icon: CreditCard },
 ]
 
-export function AppSidebar() {
+export function AppSidebar({ pendingCount }: { pendingCount: number }) {
   const pathname = usePathname()
 
   return (
@@ -58,7 +58,12 @@ export function AppSidebar() {
                       render={<Link href={item.url} />}
                     >
                       <item.icon />
-                      <span>{item.title}</span>
+                      <span className="flex-1">{item.title}</span>
+                      {pendingCount > 0 && (item.url === "/transactions" || item.url === "/month-end") && (
+                        <span className="ml-auto inline-flex h-5 items-center rounded-full bg-red-600 px-2 text-xs font-medium text-white">
+                          {pendingCount}
+                        </span>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )
