@@ -78,7 +78,7 @@ export function InvoiceDetailClient({
 }) {
   const [paymentOpen, setPaymentOpen] = React.useState(false)
 
-  const typeLabel = invoice.type === "quote" ? "Quote" : invoice.type === "credit_note" ? "Credit Note" : "Invoice"
+  const typeLabel = invoice.type === "credit_note" ? "Credit Note" : "Invoice"
 
   return (
     <>

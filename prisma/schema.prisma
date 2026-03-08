@@ -112,7 +112,7 @@ model StockMovement {
 model Invoice {
   id             Int       @id @default(autoincrement())
   entity_id      Int
-  type           String    // 'quote'|'invoice'|'credit_note'
+  type           String    // 'invoice'|'credit_note'
   status         String    // 'draft'|'open'|'paid'|'void'
   invoice_number String?
   issue_date     DateTime?

@@ -50,7 +50,7 @@ export function InvoiceListClient({ invoices }: { invoices: Invoice[] }) {
 
   return (
     <div className="flex-1 p-6 space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Invoices &amp; Quotes</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
 
       <Card>
         <CardHeader>
@@ -64,7 +64,6 @@ export function InvoiceListClient({ invoices }: { invoices: Invoice[] }) {
               >
                 <option value="all">All Types</option>
                 <option value="invoice">Invoices</option>
-                <option value="quote">Quotes</option>
                 <option value="credit_note">Credit Notes</option>
               </select>
               <select

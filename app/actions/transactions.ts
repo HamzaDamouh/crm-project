@@ -86,21 +86,21 @@ export async function saveAsTransaction(data: TransactionData) {
   }
 }
 
-export async function generateQuote(data: TransactionData) {
+export async function generateInvoice(data: TransactionData) {
   try {
     // Generate invoice number
     const lastInvoice = await prisma.invoice.findFirst({
-      where: { type: "quote" },
+      where: { type: "invoice" },
       orderBy: { id: "desc" },
     })
     const nextNum = lastInvoice ? lastInvoice.id + 1 : 1
-    const invoiceNumber = `QT-${new Date().getFullYear()}-${String(nextNum).padStart(3, "0")}`
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(nextNum).padStart(3, "0")}`
 
     // Create the invoice record
     const invoice = await prisma.invoice.create({
       data: {
         entity_id: data.entityId,
-        type: "quote",
+        type: "invoice",
         status: "draft",
         invoice_number: invoiceNumber,
         issue_date: new Date(),
@@ -128,9 +128,9 @@ export async function generateQuote(data: TransactionData) {
     revalidatePath("/dashboard")
     revalidatePath("/invoices")
 
-    return { success: true, message: "Quote generated!", invoiceId: invoice.id }
+    return { success: true, message: "Invoice generated!", invoiceId: invoice.id }
   } catch (error) {
-    console.error("Error generating quote:", error)
-    return { success: false, message: "Failed to generate quote." }
+    console.error("Error generating invoice:", error)
+    return { success: false, message: "Failed to generate invoice." }
   }
 }

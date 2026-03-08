@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Plus, Trash2, ShoppingCart, FileText, Search } from "lucide-react"
-import { saveAsTransaction, generateQuote } from "@/app/actions/transactions"
+import { saveAsTransaction, generateInvoice } from "@/app/actions/transactions"
 
 // ——— Types ———
 
@@ -224,11 +224,11 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
     }
   }
 
-  async function handleGenerateQuote() {
+  async function handleGenerateInvoice() {
     if (!canSubmit) return
     setSubmitting(true)
     try {
-      const result = await generateQuote({
+      const result = await generateInvoice({
         entityId: selectedEntityId,
         lines: validLines.map((l) => ({
           productId: l.productId!,
@@ -508,10 +508,10 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
         <Button
           size="lg"
           disabled={!canSubmit || submitting}
-          onClick={handleGenerateQuote}
+          onClick={handleGenerateInvoice}
         >
           <FileText className="h-4 w-4 mr-2" />
-          {submitting ? "Generating..." : "Generate Quote"}
+          {submitting ? "Generating..." : "Generate Invoice"}
         </Button>
       </div>
     </div>
