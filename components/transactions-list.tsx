@@ -65,6 +65,11 @@ export function TransactionsListClient({ entries }: { entries: SalesLogEntry[] }
     }
   }
 
+  const selectedTotal = Array.from(selected).reduce((sum, id) => {
+    const entry = entries.find((e) => e.id === id)
+    return sum + (entry?.total || 0)
+  }, 0)
+
   const tabs = [
     { key: "all" as const, label: "All", count: entries.length },
     { key: "pending" as const, label: "Pending", count: pendingCount },
@@ -211,8 +216,15 @@ export function TransactionsListClient({ entries }: { entries: SalesLogEntry[] }
       </Card>
 
       {selected.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-foreground text-background px-6 py-3 rounded-full shadow-lg text-sm font-medium">
-          {selected.size} transaction{selected.size > 1 ? "s" : ""} selected
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-foreground text-background px-6 py-4 rounded-full shadow-lg flex items-center gap-6 z-50">
+          <div className="text-sm font-medium">
+            {selected.size} transaction{selected.size > 1 ? "s" : ""} selected — Total: {selectedTotal.toLocaleString()} MAD
+          </div>
+          <Link href={`/month-end?selected=${Array.from(selected).join(",")}`}>
+            <Button variant="secondary" size="sm">
+              Send to Month-End
+            </Button>
+          </Link>
         </div>
       )}
     </div>

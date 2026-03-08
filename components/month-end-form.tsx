@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -38,7 +38,7 @@ interface EditedPrice {
   [logId: number]: number
 }
 
-export function MonthEndClient({
+export function MonthEndClientComponent({
   entries,
   entities,
   currentMonth,
@@ -48,13 +48,21 @@ export function MonthEndClient({
   currentMonth: string
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [editedPrices, setEditedPrices] = React.useState<EditedPrice>({})
   const [selectedEntityId, setSelectedEntityId] = React.useState<number>(
     entities[0]?.id || 0
   )
-  const [selectedEntryIds, setSelectedEntryIds] = React.useState<Set<number>>(
-    new Set(entries.map((e) => e.id))
-  )
+  const [selectedEntryIds, setSelectedEntryIds] = React.useState<Set<number>>(() => {
+    const selectedParam = searchParams.get("selected")
+    if (selectedParam) {
+      const ids = selectedParam.split(",").map(Number).filter((id) => !isNaN(id))
+      const validIds = new Set(entries.map((e) => e.id))
+      const validSelectedIds = ids.filter((id) => validIds.has(id))
+      return new Set(validSelectedIds)
+    }
+    return new Set(entries.map((e) => e.id))
+  })
   const [entitySearch, setEntitySearch] = React.useState("")
   const [entityDropdownOpen, setEntityDropdownOpen] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
@@ -341,5 +349,17 @@ export function MonthEndClient({
         </Button>
       </div>
     </div>
+  )
+}
+
+export function MonthEndClient(props: {
+  entries: PendingEntry[]
+  entities: Entity[]
+  currentMonth: string
+}) {
+  return (
+    <React.Suspense fallback={<div>Loading...</div>}>
+      <MonthEndClientComponent {...props} />
+    </React.Suspense>
   )
 }
