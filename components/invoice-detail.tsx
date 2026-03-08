@@ -204,7 +204,9 @@ export function InvoiceDetailClient({
               <span>{formatCurrency(invoice.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">TVA ({invoice.tax_rate}%)</span>
+              <span className="text-muted-foreground">
+                TVA {invoice.tax_rate > 0 ? `(${invoice.tax_rate}%)` : ""}
+              </span>
               <span>{formatCurrency(invoice.tax_amount)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold border-t pt-2">

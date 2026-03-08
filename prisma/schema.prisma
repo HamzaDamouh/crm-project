@@ -8,56 +8,53 @@ datasource db {
 }
 
 model Entity {
-  id           Int      @id @default(autoincrement())
-  type         String   // 'company'|'individual'|'supplier'
-  name         String
-  phone        String?
-  email        String?
-  address      String?
-  ice          String?
-  credit_limit Float?
-  balance_due  Float    @default(0)
-  notes        String?
-  is_active    Boolean  @default(true)
-  created_at   DateTime @default(now())
-
-  // Relations
+  id                Int             @id @default(autoincrement())
+  type              String
+  name              String
+  phone             String?
+  email             String?
+  address           String?
+  ice               String?
+  credit_limit      Float?
+  balance_due       Float           @default(0)
+  notes             String?
+  is_active         Boolean         @default(true)
+  created_at        DateTime        @default(now())
+  dailySalesLogs    DailySalesLog[]
+  debtTransfersTo   DebtTransfer[]  @relation("DebtTransferredTo")
+  debtTransfersFrom DebtTransfer[]  @relation("DebtTransferredFrom")
   invoices          Invoice[]
   paymentsMade      Payment[]       @relation("PaymentsMade")
-  debtTransfersFrom DebtTransfer[]  @relation("DebtTransferredFrom")
-  debtTransfersTo   DebtTransfer[]  @relation("DebtTransferredTo")
-  purchaseOrders    PurchaseOrder[] // Assumes a supplier is an entity
-  dailySalesLogs    DailySalesLog[]
+  purchaseOrders    PurchaseOrder[]
 }
 
 model Category {
-  id        Int    @id @default(autoincrement())
+  id        Int        @id @default(autoincrement())
   name      String
   parent_id Int?
-
-  parent   Category?  @relation("SubCategories", fields: [parent_id], references: [id])
-  children Category[] @relation("SubCategories")
-  products Product[]
+  parent    Category?  @relation("SubCategories", fields: [parent_id], references: [id])
+  children  Category[] @relation("SubCategories")
+  products  Product[]
 }
 
 model Product {
-  id          Int      @id @default(autoincrement())
-  category_id Int?
-  name        String
-  reference   String?
-  description String?
-  unit        String?
-  stock_qty   Float    @default(0)
-  stock_min   Float    @default(0)
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-
-  category           Category?           @relation(fields: [category_id], references: [id])
+  id                 Int                 @id @default(autoincrement())
+  category_id        Int?
+  name               String
+  reference          String?
+  description        String?
+  unit               String?
+  stock_qty          Float               @default(0)
+  stock_min          Float               @default(0)
+  tax_rate           Float               @default(20)
+  is_active          Boolean             @default(true)
+  created_at         DateTime            @default(now())
+  dailySalesLogs     DailySalesLog[]
+  invoiceLines       InvoiceLine[]
   priceTiers         PriceTier[]
+  category           Category?           @relation(fields: [category_id], references: [id])
   purchaseOrderLines PurchaseOrderLine[]
   stockMovements     StockMovement[]
-  invoiceLines       InvoiceLine[]
-  dailySalesLogs     DailySalesLog[]
 }
 
 model PriceTier {
@@ -67,74 +64,69 @@ model PriceTier {
   max_qty    Float?
   unit_price Float
   note       String?
-
-  product Product @relation(fields: [product_id], references: [id])
+  product    Product @relation(fields: [product_id], references: [id])
 }
 
 model PurchaseOrder {
-  id          Int       @id @default(autoincrement())
+  id          Int                 @id @default(autoincrement())
   supplier_id Int
   reference   String?
-  status      String    // 'draft'|'sent'|'received'|'cancelled'
+  status      String
   ordered_at  DateTime?
   expected_at DateTime?
   notes       String?
-  created_at  DateTime  @default(now())
-
-  supplier Entity              @relation(fields: [supplier_id], references: [id])
-  lines    PurchaseOrderLine[]
+  created_at  DateTime            @default(now())
+  supplier    Entity              @relation(fields: [supplier_id], references: [id])
+  lines       PurchaseOrderLine[]
 }
 
 model PurchaseOrderLine {
-  id                Int   @id @default(autoincrement())
+  id                Int           @id @default(autoincrement())
   purchase_order_id Int
   product_id        Int
   qty_ordered       Float
-  qty_received      Float @default(0)
+  qty_received      Float         @default(0)
   unit_cost         Float
-
-  purchaseOrder PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
-  product       Product       @relation(fields: [product_id], references: [id])
+  product           Product       @relation(fields: [product_id], references: [id])
+  purchaseOrder     PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
 }
 
 model StockMovement {
   id             Int      @id @default(autoincrement())
   product_id     Int
-  movement_type  String   // 'in'|'out'|'adjustment'
+  movement_type  String
   qty            Float
-  reference_type String?  // 'purchase_order'|'invoice'|'manual'
+  reference_type String?
   reference_id   Int?
   note           String?
   created_at     DateTime @default(now())
-
-  product Product @relation(fields: [product_id], references: [id])
+  product        Product  @relation(fields: [product_id], references: [id])
 }
 
 model Invoice {
-  id             Int       @id @default(autoincrement())
+  id             Int           @id @default(autoincrement())
   entity_id      Int
-  type           String    // 'invoice'|'credit_note'
-  status         String    // 'draft'|'open'|'paid'|'void'
+  type           String
+  status         String
   invoice_number String?
   issue_date     DateTime?
   due_date       DateTime?
   subtotal       Float
-  tax_rate       Float     @default(0)
-  tax_amount     Float     @default(0)
+  tax_rate       Float         @default(0)
+  tax_amount     Float         @default(0)
   total          Float
-  amount_paid    Float     @default(0)
+  amount_paid    Float         @default(0)
   balance_due    Float
   notes          String?
-  is_locked      Boolean   @default(false)
-  created_at     DateTime  @default(now())
-
-  entity   Entity        @relation(fields: [entity_id], references: [id])
-  lines    InvoiceLine[]
-  payments Payment[]
+  is_locked      Boolean       @default(false)
+  created_at     DateTime      @default(now())
+  entity         Entity        @relation(fields: [entity_id], references: [id])
+  lines          InvoiceLine[]
+  payments       Payment[]
 }
 
 model InvoiceLine {
-  id              Int     @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   invoice_id      Int
   product_id      Int?
   description     String?
@@ -144,25 +136,24 @@ model InvoiceLine {
   override_reason String?
   unit_price      Float
   line_total      Float
-
-  invoice Invoice  @relation(fields: [invoice_id], references: [id])
-  product Product? @relation(fields: [product_id], references: [id])
+  unit_cost       Float?
+  product         Product? @relation(fields: [product_id], references: [id])
+  invoice         Invoice  @relation(fields: [invoice_id], references: [id])
 }
 
 model Payment {
-  id                Int       @id @default(autoincrement())
+  id                Int            @id @default(autoincrement())
   invoice_id        Int?
   paid_by_entity_id Int
-  method            String    // 'cash'|'cheque'|'transfer'|'debt_transfer'
+  method            String
   amount            Float
   cheque_number     String?
   payment_date      DateTime?
   notes             String?
-  created_at        DateTime  @default(now())
-
-  invoice      Invoice? @relation(fields: [invoice_id], references: [id])
-  paidByEntity Entity   @relation("PaymentsMade", fields: [paid_by_entity_id], references: [id])
-  debtTransfers DebtTransfer[]
+  created_at        DateTime       @default(now())
+  debtTransfers     DebtTransfer[]
+  paidByEntity      Entity         @relation("PaymentsMade", fields: [paid_by_entity_id], references: [id])
+  invoice           Invoice?       @relation(fields: [invoice_id], references: [id])
 }
 
 model DebtTransfer {
@@ -173,10 +164,9 @@ model DebtTransfer {
   related_payment_id Int?
   note               String?
   created_at         DateTime @default(now())
-
-  fromEntity Entity @relation("DebtTransferredFrom", fields: [from_entity_id], references: [id])
-  toEntity   Entity @relation("DebtTransferredTo", fields: [to_entity_id], references: [id])
-  related_payment Payment? @relation(fields: [related_payment_id], references: [id])
+  related_payment    Payment? @relation(fields: [related_payment_id], references: [id])
+  toEntity           Entity   @relation("DebtTransferredTo", fields: [to_entity_id], references: [id])
+  fromEntity         Entity   @relation("DebtTransferredFrom", fields: [from_entity_id], references: [id])
 }
 
 model DailySalesLog {
@@ -190,7 +180,6 @@ model DailySalesLog {
   note       String?
   invoiced   Boolean  @default(false)
   created_at DateTime @default(now())
-
-  product Product @relation(fields: [product_id], references: [id])
-  entity  Entity? @relation(fields: [entity_id], references: [id])
+  entity     Entity?  @relation(fields: [entity_id], references: [id])
+  product    Product  @relation(fields: [product_id], references: [id])
 }

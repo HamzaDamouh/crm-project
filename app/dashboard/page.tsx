@@ -10,9 +10,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { TopClientsChart } from "@/components/top-clients-chart"
-import { DollarSign, FileWarning, AlertTriangle, ShoppingBag } from "lucide-react"
+import { AgingReceivablesChart } from "@/components/aging-receivables-chart"
+import { DollarSign, FileWarning, AlertTriangle, ShoppingBag, TrendingUp, CreditCard } from "lucide-react"
 import Link from "next/link"
 import { formatCurrency } from "@/lib/utils"
+import { DashboardPaymentButton } from "@/components/dashboard-payment-button"
 
 export default async function DashboardPage() {
   // ——— ROW 1: Stat Cards ———
@@ -27,19 +29,32 @@ export default async function DashboardPage() {
       status: "paid",
       issue_date: { gte: startOfMonth, lte: endOfMonth },
     },
+    include: {
+      lines: true,
+    },
   })
-  const totalSalesThisMonth = paidInvoicesThisMonth.reduce((sum, inv) => sum + inv.total, 0)
+  const totalSalesThisMonth = paidInvoicesThisMonth.reduce((sum: number, inv: any) => sum + inv.total, 0)
+
+  // Gross Profit This Month (Revenue - COGS)
+  const totalCOGSThisMonth = paidInvoicesThisMonth.reduce((sum: number, inv: any) => {
+    const invoiceCOGS = inv.lines.reduce((lineSum: number, line: any) => {
+      return lineSum + (line.qty * (line.unit_cost || 0))
+    }, 0)
+    return sum + invoiceCOGS
+  }, 0)
+  const grossProfitThisMonth = totalSalesThisMonth - totalCOGSThisMonth
+  const profitMargin = totalSalesThisMonth > 0 ? (grossProfitThisMonth / totalSalesThisMonth) * 100 : 0
 
   // Unpaid Invoices
   const unpaidInvoices = await prisma.invoice.findMany({
     where: { balance_due: { gt: 0 } },
   })
   const unpaidCount = unpaidInvoices.length
-  const unpaidTotal = unpaidInvoices.reduce((sum, inv) => sum + inv.balance_due, 0)
+  const unpaidTotal = unpaidInvoices.reduce((sum: number, inv: any) => sum + inv.balance_due, 0)
 
   // Low Stock Alerts
   const allProducts = await prisma.product.findMany()
-  const lowStockProducts = allProducts.filter((p) => p.stock_qty <= p.stock_min)
+  const lowStockProducts = allProducts.filter((p: any) => p.stock_qty <= p.stock_min)
   const lowStockCount = lowStockProducts.length
 
   // Pending Walk-in Sales
@@ -56,13 +71,20 @@ export default async function DashboardPage() {
     include: { entity: true },
   })
 
+  // Fetch entities for payment modal
+  const entities = await prisma.entity.findMany({
+    where: { is_active: true },
+    select: { id: true, name: true, balance_due: true, type: true },
+    orderBy: { name: "asc" }
+  })
+
   // Top 5 Clients by revenue (all time, from paid invoices)
   const allPaidInvoices = await prisma.invoice.findMany({
     where: { status: "paid", type: "invoice" },
     include: { entity: true },
   })
   const revenueByClient: Record<string, number> = {}
-  for (const inv of allPaidInvoices) {
+  for (const inv of allPaidInvoices as any[]) {
     const name = inv.entity.name
     revenueByClient[name] = (revenueByClient[name] || 0) + inv.total
   }
@@ -82,12 +104,39 @@ export default async function DashboardPage() {
     return <Badge className="bg-red-600 text-white hover:bg-red-700">Impayé</Badge>
   }
 
+  // Aging Receivables Calculation
+  const agingBuckets = [
+    { range: "0-30 days", amount: 0 },
+    { range: "31-60 days", amount: 0 },
+    { range: "60+ days", amount: 0 },
+  ]
+
+  unpaidInvoices.forEach((inv: any) => {
+    const issueDate = new Date(inv.issue_date || inv.created_at)
+    const diffMs = now.getTime() - issueDate.getTime()
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffDays <= 30) {
+      agingBuckets[0].amount += inv.balance_due
+    } else if (diffDays <= 60) {
+      agingBuckets[1].amount += inv.balance_due
+    } else {
+      agingBuckets[2].amount += inv.balance_due
+    }
+  })
+
+  // ——— ROW 3: Recent Invoices ———
+  // Recent 8 Invoices (defined above in Row 2 context previously)
+
+  // ——— ROW 4: Stock Alerts ———
+  // lowStockProducts already fetched above
+
   return (
     <div className="flex-1 space-y-6 p-6">
       <h1 className="text-3xl font-bold tracking-tight">Tableau de bord</h1>
 
       {/* ROW 1 — Stat Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Ventes totales ce mois</CardTitle>
@@ -109,6 +158,19 @@ export default async function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(unpaidTotal)}</div>
             <p className="text-xs text-muted-foreground">{unpaidCount} facture(s) en attente</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Marge brute ce mois</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(grossProfitThisMonth)}</div>
+            <p className="text-xs text-muted-foreground">
+              Ratio de marge: {profitMargin.toFixed(1)}%
+            </p>
           </CardContent>
         </Card>
 
@@ -137,38 +199,15 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* ROW 2 — Recent Invoices + Top Clients */}
+      {/* ROW 2 — Charts (Side-by-side) */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Recent Invoices Table */}
+        {/* Aging Receivables Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Factures récentes</CardTitle>
+            <CardTitle>Âge des créances (Aging Receivables)</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>N° de facture</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-center">Statut</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentInvoices.map((inv) => (
-                  <TableRow key={inv.id}>
-                     <TableCell className="font-medium">{inv.entity.name}</TableCell>
-                    <TableCell>{inv.invoice_number || "—"}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(inv.total)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getStatusBadge(inv.status, inv.balance_due, inv.total)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <AgingReceivablesChart data={agingBuckets} />
           </CardContent>
         </Card>
 
@@ -187,10 +226,53 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
+      {/* ROW 3 — Recent Invoices Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Factures récentes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Client</TableHead>
+                <TableHead>N° de facture</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-center">Statut</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {recentInvoices.map((inv: any) => (
+                <TableRow key={inv.id}>
+                   <TableCell className="font-medium">{inv.entity.name}</TableCell>
+                  <TableCell>{inv.invoice_number || "—"}</TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(inv.total)}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {getStatusBadge(inv.status, inv.balance_due, inv.total)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {(inv.status === "open" || inv.status === "draft") && inv.balance_due > 0 && (
+                      <DashboardPaymentButton
+                        invoiceId={inv.id}
+                        balanceDue={inv.balance_due}
+                        entities={entities}
+                      />
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       {/* ROW 3 — Stock Alerts */}
       <Card>
         <CardHeader>
-          <CardTitle>Alertes stock bas</CardTitle>
+          <CardTitle>Alertes stock bas (Cliquer pour créer un bon de commande)</CardTitle>
         </CardHeader>
         <CardContent>
           {lowStockProducts.length === 0 ? (
@@ -209,22 +291,38 @@ export default async function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lowStockProducts.map((p) => {
+                {lowStockProducts.map((p: any) => {
                   const isCritical = p.stock_qty === 0
                   return (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.name}</TableCell>
-                      <TableCell>{p.reference || "—"}</TableCell>
-                      <TableCell className={`text-right font-bold ${isCritical ? "text-red-600" : "text-yellow-600"}`}>
-                        {p.stock_qty}
+                    <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <TableCell className="font-medium p-0">
+                        <Link href={`/purchase-orders/new?productId=${p.id}`} className="block px-4 py-3">
+                        {p.name}
+                        </Link>
                       </TableCell>
-                      <TableCell className="text-right">{p.stock_min}</TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="p-0">
+                         <Link href={`/purchase-orders/new?productId=${p.id}`} className="block px-4 py-3">
+                        {p.reference || "—"}
+                        </Link>
+                      </TableCell>
+                      <TableCell className={`text-right font-bold p-0 ${isCritical ? "text-red-600" : "text-yellow-600"}`}>
+                         <Link href={`/purchase-orders/new?productId=${p.id}`} className="block px-4 py-3">
+                        {p.stock_qty}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-right p-0">
+                         <Link href={`/purchase-orders/new?productId=${p.id}`} className="block px-4 py-3">
+                        {p.stock_min}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-center p-0">
+                         <Link href={`/purchase-orders/new?productId=${p.id}`} className="block px-4 py-3">
                         {isCritical ? (
                           <Badge className="bg-red-600 text-white">Critique</Badge>
                         ) : (
                           <Badge className="bg-yellow-500 text-white">Bas</Badge>
                         )}
+                        </Link>
                       </TableCell>
                     </TableRow>
                   )

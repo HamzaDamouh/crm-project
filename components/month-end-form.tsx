@@ -27,7 +27,7 @@ interface PendingEntry {
   qty: number
   unit_price: number
   total: number
-  product: { id: number; name: string; reference: string | null }
+  product: { id: number; name: string; reference: string | null; tax_rate: number }
 }
 
 interface Entity {
@@ -109,7 +109,10 @@ export function MonthEndClientComponent({
 
   const selectedEntriesList = entries.filter((e) => selectedEntryIds.has(e.id))
   const runningTotal = selectedEntriesList.reduce((sum, e) => sum + getLineTotal(e), 0)
-  const taxAmount = Math.round(runningTotal * 0.2 * 100) / 100
+  const taxAmount = selectedEntriesList.reduce((sum, e) => {
+    const lineTotal = getLineTotal(e)
+    return sum + (Math.round(lineTotal * (e.product.tax_rate / 100) * 100) / 100)
+  }, 0)
   const grandTotal = Math.round((runningTotal + taxAmount) * 100) / 100
 
   async function handleGenerate() {
@@ -125,10 +128,10 @@ export function MonthEndClientComponent({
       }))
       const result = await generateConsolidatedInvoice(selectedEntityId, lines)
       if (result.success && result.invoiceId) {
-        toast.success(`Facture consolidée INV-${result.invoiceId} créée avec succès`)
+        toast.success(result.message)
         router.push(`/invoices/${result.invoiceId}`)
       } else {
-        toast.error("Échec de la génération de la facture.")
+        toast.error(result.message)
       }
     } catch {
       toast.error("Erreur inattendue.")
@@ -270,7 +273,7 @@ export function MonthEndClientComponent({
                 </TableRow>
                 <TableRow className="font-medium">
                   <TableCell colSpan={5} className="text-right text-sm text-muted-foreground">
-                    TVA (20%)
+                    TVA
                   </TableCell>
                   <TableCell className="text-right text-sm">
                     {formatCurrency(taxAmount)}

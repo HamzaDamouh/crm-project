@@ -97,6 +97,35 @@ export async function generateInvoice(data: TransactionData) {
     const nextNum = lastInvoice ? lastInvoice.id + 1 : 1
     const invoiceNumber = `INV-${new Date().getFullYear()}-${String(nextNum).padStart(3, "0")}`
 
+    // Fetch products to get their tax rates and latest unit cost
+    const productIds = data.lines.map(l => l.productId)
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { 
+        id: true, 
+        tax_rate: true,
+        purchaseOrderLines: {
+          orderBy: { id: "desc" },
+          take: 1,
+          select: { unit_cost: true }
+        }
+      }
+    })
+    
+    const productTaxMap = new Map<number, number>(products.map((p: any) => [p.id, p.tax_rate]))
+    const productCostMap = new Map<number, number>(
+      products.map((p: any) => [p.id, p.purchaseOrderLines[0]?.unit_cost ?? 0])
+    )
+    
+    // Calculate total tax amount based on individual product rates
+    const calculatedTaxAmount = data.lines.reduce((sum, line) => {
+      const taxRate = productTaxMap.get(line.productId) ?? 20
+      return sum + (Number(line.lineTotal) * (Number(taxRate) / 100))
+    }, 0)
+    
+    const finalTaxAmount = Math.round(calculatedTaxAmount * 100) / 100
+    const finalTotal = Math.round((data.subtotal + finalTaxAmount) * 100) / 100
+
     // Create the invoice record
     const invoice = await prisma.invoice.create({
       data: {
@@ -106,17 +135,18 @@ export async function generateInvoice(data: TransactionData) {
         invoice_number: invoiceNumber,
         issue_date: new Date(),
         subtotal: data.subtotal,
-        tax_rate: 20,
-        tax_amount: data.taxAmount,
-        total: data.total,
+        tax_rate: 0, // No longer a single global rate
+        tax_amount: finalTaxAmount,
+        total: finalTotal,
         amount_paid: 0,
-        balance_due: data.total,
+        balance_due: finalTotal,
         lines: {
           create: data.lines.map((line) => ({
             product_id: line.productId,
             qty: line.qty,
             catalog_price: line.unitPrice,
             unit_price: line.unitPrice,
+            unit_cost: productCostMap.get(line.productId) ?? 0,
             line_total: line.lineTotal,
           })),
         },

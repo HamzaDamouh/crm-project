@@ -28,6 +28,7 @@ interface Product {
   name: string
   reference: string | null
   stock_qty: number
+  tax_rate: number
   priceTiers: PriceTier[]
 }
 
@@ -45,6 +46,7 @@ interface LineItem {
   qty: number
   unitPrice: number
   lineTotal: number
+  taxRate: number
   selectedTier: PriceTier | null
 }
 
@@ -80,6 +82,7 @@ function emptyLine(): LineItem {
     qty: 1,
     unitPrice: 0,
     lineTotal: 0,
+    taxRate: 20,
     selectedTier: null,
   }
 }
@@ -147,6 +150,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
       productId: product.id,
       productSearch: `${product.name} (${product.reference || "N/A"})`,
       unitPrice,
+      taxRate: product.tax_rate,
       selectedTier: tier,
       lineTotal: qty * unitPrice,
     })
@@ -182,7 +186,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
 
   // ——— Calculations ———
   const subtotal = lines.reduce((sum, l) => sum + l.lineTotal, 0)
-  const taxAmount = Math.round(subtotal * 0.2 * 100) / 100
+  const taxAmount = lines.reduce((sum, l) => sum + (Math.round(l.lineTotal * (l.taxRate / 100) * 100) / 100), 0)
   const total = Math.round((subtotal + taxAmount) * 100) / 100
 
   const validLines = lines.filter((l) => l.productId && l.qty > 0 && l.unitPrice > 0)
@@ -206,7 +210,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
         total,
       })
       if (result.success) {
-        toast.success(`${validLines.length} transaction(s) enregistrée(s) visible(s) dans la Clôture mensuelle`)
+        toast.success(result.message)
         setLines([emptyLine()])
       } else {
         toast.error(result.message)
@@ -235,7 +239,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
         total,
       })
       if (result.success && result.invoiceId) {
-        toast.success(`Facture ${"invoiceNumber" in result ? result.invoiceNumber : "créée"} avec succès`)
+        toast.success(result.message)
         router.push(`/invoices/${result.invoiceId}`)
       } else if (result.success) {
         toast.success(result.message)
@@ -480,7 +484,7 @@ export function TransactionForm({ entities, products }: TransactionFormProps) {
               <span>{formatCurrency(subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">TVA (20%)</span>
+              <span className="text-muted-foreground">TVA</span>
               <span>{formatCurrency(taxAmount)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold border-t pt-2">

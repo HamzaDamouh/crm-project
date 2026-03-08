@@ -1,16 +1,38 @@
 import prisma from "@/lib/db"
 import { ClientsListClient } from "@/components/clients-list"
 
-export default async function ClientsPage() {
-  const entities = await prisma.entity.findMany({
-    where: { type: { not: "supplier" } },
-    orderBy: { name: "asc" },
-    include: {
-      invoices: {
-        select: { total: true, amount_paid: true, created_at: true },
+export default async function ClientsPage({
+  searchParams,
+}: {
+  searchParams?: {
+    query?: string
+    page?: string
+  }
+}) {
+  const query = searchParams?.query || ""
+  const page = Number(searchParams?.page) || 1
+  const pageSize = 10
+  const skip = (page - 1) * pageSize
+
+  const where = {
+    type: { not: "supplier" },
+    name: { contains: query, mode: "insensitive" as const },
+  }
+
+  const [entities, totalCount] = await Promise.all([
+    prisma.entity.findMany({
+      where,
+      orderBy: { name: "asc" },
+      include: {
+        invoices: {
+          select: { total: true, amount_paid: true, created_at: true },
+        },
       },
-    },
-  })
+      skip,
+      take: pageSize,
+    }),
+    prisma.entity.count({ where }),
+  ])
 
   const clients = entities.map((entity) => {
     const totalInvoiced = entity.invoices.reduce((sum, inv) => sum + inv.total, 0)
@@ -33,5 +55,13 @@ export default async function ClientsPage() {
     }
   })
 
-  return <ClientsListClient clients={clients} />
+  return (
+    <ClientsListClient
+      clients={clients}
+      totalCount={totalCount}
+      pageSize={pageSize}
+      currentPage={page}
+    />
+  )
 }
+
