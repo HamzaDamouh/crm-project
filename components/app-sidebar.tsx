@@ -27,7 +27,7 @@ import {
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Transactions", url: "/transactions/new", icon: ShoppingCart },
+  { title: "Transactions", url: "/transactions", icon: ShoppingCart },
   { title: "Invoices & Quotes", url: "/invoices", icon: FileText },
   { title: "Stock", url: "/stock", icon: Package },
   { title: "Clients", url: "/clients", icon: Users },
