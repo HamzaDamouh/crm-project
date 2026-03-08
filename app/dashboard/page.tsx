@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/table"
 import { TopClientsChart } from "@/components/top-clients-chart"
 import { DollarSign, FileWarning, AlertTriangle, ShoppingBag } from "lucide-react"
+import Link from "next/link"
+import { formatCurrency } from "@/lib/utils"
 
 export default async function DashboardPage() {
   // ——— ROW 1: Stat Cards ———
@@ -74,61 +76,63 @@ export default async function DashboardPage() {
 
   function getStatusBadge(status: string, balanceDue: number, total: number) {
     if (status === "paid" || balanceDue === 0)
-      return <Badge className="bg-green-600 text-white hover:bg-green-700">Paid</Badge>
+      return <Badge className="bg-green-600 text-white hover:bg-green-700">Payé</Badge>
     if (balanceDue > 0 && balanceDue < total)
-      return <Badge className="bg-yellow-500 text-white hover:bg-yellow-600">Partial</Badge>
-    return <Badge className="bg-red-600 text-white hover:bg-red-700">Unpaid</Badge>
+      return <Badge className="bg-yellow-500 text-white hover:bg-yellow-600">Partiel</Badge>
+    return <Badge className="bg-red-600 text-white hover:bg-red-700">Impayé</Badge>
   }
 
   return (
     <div className="flex-1 space-y-6 p-6">
-      <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Tableau de bord</h1>
 
       {/* ROW 1 — Stat Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Sales This Month</CardTitle>
+            <CardTitle className="text-sm font-medium">Ventes totales ce mois</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalSalesThisMonth.toLocaleString()} MAD</div>
+            <div className="text-2xl font-bold">{formatCurrency(totalSalesThisMonth)}</div>
             <p className="text-xs text-muted-foreground">
-              {paidInvoicesThisMonth.length} paid invoice(s)
+              {paidInvoicesThisMonth.length} facture(s) payée(s)
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Unpaid Invoices</CardTitle>
+            <CardTitle className="text-sm font-medium">Factures impayées</CardTitle>
             <FileWarning className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{unpaidTotal.toLocaleString()} MAD</div>
-            <p className="text-xs text-muted-foreground">{unpaidCount} invoice(s) outstanding</p>
+            <div className="text-2xl font-bold">{formatCurrency(unpaidTotal)}</div>
+            <p className="text-xs text-muted-foreground">{unpaidCount} facture(s) en attente</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock Alerts</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{lowStockCount}</div>
-            <p className="text-xs text-muted-foreground">product(s) at or below minimum</p>
-          </CardContent>
-        </Card>
+        <Link href="/stock" className="block outline-none focus:ring-2 focus:ring-ring rounded-lg">
+          <Card className="hover:bg-accent hover:text-accent-foreground transition-colors h-full cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Alertes stock bas</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{lowStockCount}</div>
+              <p className="text-xs text-muted-foreground">produit(s) au seuil minimum</p>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending Walk-in Sales</CardTitle>
+            <CardTitle className="text-sm font-medium">Ventes comptoir en attente</CardTitle>
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{pendingWalkIns}</div>
-            <p className="text-xs text-muted-foreground">not yet invoiced</p>
+            <p className="text-xs text-muted-foreground">non encore facturé(s)</p>
           </CardContent>
         </Card>
       </div>
@@ -138,25 +142,25 @@ export default async function DashboardPage() {
         {/* Recent Invoices Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Invoices</CardTitle>
+            <CardTitle>Factures récentes</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Client</TableHead>
-                  <TableHead>Invoice #</TableHead>
+                  <TableHead>N° de facture</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-center">Statut</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {recentInvoices.map((inv) => (
                   <TableRow key={inv.id}>
-                    <TableCell className="font-medium">{inv.entity.name}</TableCell>
+                     <TableCell className="font-medium">{inv.entity.name}</TableCell>
                     <TableCell>{inv.invoice_number || "—"}</TableCell>
                     <TableCell className="text-right">
-                      {inv.total.toLocaleString()} MAD
+                      {formatCurrency(inv.total)}
                     </TableCell>
                     <TableCell className="text-center">
                       {getStatusBadge(inv.status, inv.balance_due, inv.total)}
@@ -171,13 +175,13 @@ export default async function DashboardPage() {
         {/* Top 5 Clients by Revenue */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Clients by Revenue</CardTitle>
+            <CardTitle>Meilleurs clients par chiffre d&apos;affaires</CardTitle>
           </CardHeader>
           <CardContent>
             {topClients.length > 0 ? (
               <TopClientsChart data={topClients} />
             ) : (
-              <p className="text-muted-foreground text-sm">No revenue data yet.</p>
+              <p className="text-muted-foreground text-sm">Aucune donnée de revenu pour le moment.</p>
             )}
           </CardContent>
         </Card>
@@ -186,22 +190,22 @@ export default async function DashboardPage() {
       {/* ROW 3 — Stock Alerts */}
       <Card>
         <CardHeader>
-          <CardTitle>Stock Alerts</CardTitle>
+          <CardTitle>Alertes stock bas</CardTitle>
         </CardHeader>
         <CardContent>
           {lowStockProducts.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              All products are above minimum stock levels.
+              Tous les produits sont au-dessus des niveaux de stock minimum.
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Product</TableHead>
+                  <TableHead>Produit</TableHead>
                   <TableHead>SKU</TableHead>
-                  <TableHead className="text-right">Current Qty</TableHead>
+                  <TableHead className="text-right">Qté actuelle</TableHead>
                   <TableHead className="text-right">Minimum</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-center">Statut</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -217,9 +221,9 @@ export default async function DashboardPage() {
                       <TableCell className="text-right">{p.stock_min}</TableCell>
                       <TableCell className="text-center">
                         {isCritical ? (
-                          <Badge className="bg-red-600 text-white">Critical</Badge>
+                          <Badge className="bg-red-600 text-white">Critique</Badge>
                         ) : (
-                          <Badge className="bg-yellow-500 text-white">Low</Badge>
+                          <Badge className="bg-yellow-500 text-white">Bas</Badge>
                         )}
                       </TableCell>
                     </TableRow>
