@@ -108,7 +108,7 @@ export function InvoiceDetailClient({
         {/* Invoice Header */}
         <div className="flex justify-between items-start mb-8 border-b pb-6">
           <div>
-            <h1 className="text-2xl font-bold">Hamza Distribution</h1>
+            <h1 className="text-2xl font-bold">Easy Bricolage SARL</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Distribution d&apos;outillage professionnel
             </p>

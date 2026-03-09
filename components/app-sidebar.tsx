@@ -41,7 +41,7 @@ export function AppSidebar({ pendingCount }: { pendingCount: number }) {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <h2 className="text-xl font-bold tracking-tight">Hamza Distribution</h2>
+        <h2 className="text-xl font-bold tracking-tight">Easy Bricolage SARL</h2>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>

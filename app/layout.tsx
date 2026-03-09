@@ -20,7 +20,7 @@ import { Toaster } from "sonner";
 import prisma from "@/lib/db";
 
 export const metadata: Metadata = {
-  title: "Hamza Distribution CRM",
+  title: "Easy Bricolage SARL — CRM",
   description: "B2B sales management system for hardware tools business in Morocco",
 };
 
@@ -38,7 +38,7 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
         <div className="bg-yellow-400 text-yellow-900 text-sm font-semibold text-center py-1">
-          Environnement de démonstration — Hamza Distribution 2024
+          Environnement de démonstration — Easy Bricolage SARL 2024
         </div>
         <SidebarProvider defaultOpen>
           <AppSidebar pendingCount={pendingCount} />

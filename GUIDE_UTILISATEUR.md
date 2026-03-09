@@ -1,6 +1,6 @@
-# 📘 Guide Complet — Hamza Distribution CRM
+# 📘 Guide Complet — Easy Bricolage SARL CRM
 
-> Bienvenue dans le système de gestion **Hamza Distribution**.  
+> Bienvenue dans le système de gestion **Easy Bricolage SARL**.  
 > Ce guide vous accompagne pas à pas dans l'utilisation de toutes les fonctionnalités du logiciel, de la première vente jusqu'au suivi des paiements.
 
 ---
@@ -25,7 +25,7 @@
 
 ## 1 — Présentation générale
 
-**Hamza Distribution** est un ERP simplifié conçu pour la distribution d'outillage (B2B et B2C). Il gère :
+**Easy Bricolage SARL** est un ERP simplifié conçu pour la distribution d'outillage (B2B et B2C). Il gère :
 
 | Fonction | Description |
 |----------|-------------|

@@ -1,4 +1,4 @@
-# 🎬 Démonstration Complète — Hamza Distribution CRM
+# 🎬 Démonstration Complète — Easy Bricolage SARL CRM
 
 > Ce document est un guide de démonstration pas à pas. Suivez chaque étape dans l'ordre pour
 > découvrir toutes les fonctionnalités du logiciel. Chaque section explique **exactement quoi
@@ -314,4 +314,4 @@ Voici tout ce que vous avez couvert :
 | 11 | Fiche client | Historique factures et paiements |
 | 12 | Transfert de dette | Client tiers paie une facture |
 
-> 🎉 **Félicitations !** Vous avez fait le tour complet de l'application Hamza Distribution.
+> 🎉 **Félicitations !** Vous avez fait le tour complet de l'application Easy Bricolage SARL.
