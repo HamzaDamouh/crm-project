@@ -151,11 +151,13 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
             unitCost: l.unitCost,
           })),
       })
-      if (result.success) {
+      if (result.success && 'message' in result) {
         toast.success(result.message)
         router.push("/dashboard")
-      } else {
+      } else if ('error' in result) {
         toast.error(result.error || "Failed to create PO")
+      } else {
+        toast.error("Failed to create PO")
       }
     } catch {
       toast.error("An unexpected error occurred.")
@@ -203,7 +205,7 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
               />
             </div>
             {supplierDropdownOpen && (
-              <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-48 overflow-y-auto">
+              <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-48 overflow-y-auto">
                 {filteredSuppliers.map((s) => (
                   <button
                     key={s.id}
@@ -263,7 +265,7 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
                         }}
                       />
                       {productDropdownOpen === line.id && (
-                        <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-48 overflow-y-auto">
+                        <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-48 overflow-y-auto">
                           {getFilteredProducts(line.productSearch).map((p) => (
                             <button
                               key={p.id}

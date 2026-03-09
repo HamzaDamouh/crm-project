@@ -318,7 +318,7 @@ export function MonthEndClientComponent({
               />
             </div>
             {entityDropdownOpen && (
-              <div className="absolute z-50 mt-1 w-full rounded-md border bg-white shadow-lg max-h-48 overflow-y-auto">
+              <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg max-h-48 overflow-y-auto">
                 {filteredEntities.map((entity) => (
                   <button
                     key={entity.id}
