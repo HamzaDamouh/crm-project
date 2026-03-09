@@ -23,8 +23,8 @@ export default async function InvoicesPage({
       query
         ? {
             OR: [
-              { invoice_number: { contains: query, mode: "insensitive" } },
-              { entity: { name: { contains: query, mode: "insensitive" } } },
+              { invoice_number: { contains: query } },
+              { entity: { name: { contains: query } } },
             ],
           }
         : {},

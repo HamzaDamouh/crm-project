@@ -16,7 +16,7 @@ export default async function ClientsPage({
 
   const where = {
     type: { not: "supplier" },
-    name: { contains: query, mode: "insensitive" as const },
+    name: { contains: query },
   }
 
   const [entities, totalCount] = await Promise.all([
