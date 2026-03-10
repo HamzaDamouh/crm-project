@@ -6,10 +6,9 @@ import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Trash2, ShoppingCart, FileText, Search, Package } from "lucide-react"
+import { Plus, Trash2, Search } from "lucide-react"
+import { updatePurchaseOrder } from "@/app/actions/purchase-orders-edit"
 import { createPurchaseOrder } from "@/app/actions/purchase-orders"
 import { formatCurrency } from "@/lib/utils"
 
@@ -37,26 +36,36 @@ interface LineItem {
 interface PurchaseOrderFormProps {
   suppliers: Entity[]
   products: Product[]
+  initialData?: {
+    id: number
+    supplierId: number
+    notes: string
+    lines: LineItem[]
+  }
 }
 
-export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProps) {
+export function PurchaseOrderForm({ suppliers, products, initialData }: PurchaseOrderFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preFilledProductId = searchParams.get("productId")
 
-  const [selectedSupplierId, setSelectedSupplierId] = React.useState<number>(0)
+  const [selectedSupplierId, setSelectedSupplierId] = React.useState<number>(initialData?.supplierId || 0)
   const [supplierSearch, setSupplierSearch] = React.useState("")
   const [supplierDropdownOpen, setSupplierDropdownOpen] = React.useState(false)
-  const [lines, setLines] = React.useState<LineItem[]>([])
+  const [lines, setLines] = React.useState<LineItem[]>(initialData?.lines || [])
   const [submitting, setSubmitting] = React.useState(false)
   const [productDropdownOpen, setProductDropdownOpen] = React.useState<string | null>(null)
-  const [notes, setNotes] = React.useState("")
+  const [notes, setNotes] = React.useState(initialData?.notes || "")
 
   const supplierRef = React.useRef<HTMLDivElement>(null)
   const productRefs = React.useRef<Map<string, HTMLDivElement>>(new Map())
 
+  const isEditing = !!initialData
+
   // Pre-fill logic
   React.useEffect(() => {
+    if (isEditing) return
+
     if (preFilledProductId && products.length > 0) {
       const product = products.find((p) => p.id === parseInt(preFilledProductId))
       if (product) {
@@ -73,7 +82,7 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
     } else if (lines.length === 0) {
       setLines([emptyLine()])
     }
-  }, [preFilledProductId, products])
+  }, [preFilledProductId, products, isEditing, lines.length])
 
   // Click outside to close dropdowns
   React.useEffect(() => {
@@ -139,25 +148,43 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
   async function handleSubmit() {
     if (!canSubmit) return
     setSubmitting(true)
+
+    const payloadLines = lines
+      .filter((l) => l.productId && l.qty > 0)
+      .map((l) => ({
+        productId: l.productId!,
+        qty: l.qty,
+        unitCost: l.unitCost,
+      }))
+
     try {
-      const result = await createPurchaseOrder({
-        supplierId: selectedSupplierId,
-        notes,
-        lines: lines
-          .filter((l) => l.productId && l.qty > 0)
-          .map((l) => ({
-            productId: l.productId!,
-            qty: l.qty,
-            unitCost: l.unitCost,
-          })),
-      })
+      let result
+      
+      if (isEditing && initialData) {
+        result = await updatePurchaseOrder(
+          initialData.id,
+          { supplierId: selectedSupplierId, notes },
+          payloadLines
+        )
+      } else {
+        result = await createPurchaseOrder({
+          supplierId: selectedSupplierId,
+          notes,
+          lines: payloadLines,
+        })
+      }
+
       if (result.success && 'message' in result) {
         toast.success(result.message)
-        router.push("/achats")
+        if (isEditing) {
+          router.push(`/achats/${initialData.id}`)
+        } else {
+          router.push("/achats")
+        }
       } else if ('error' in result) {
-        toast.error(result.error || "Failed to create PO")
+        toast.error(result.error || "Failed to process PO")
       } else {
-        toast.error("Failed to create PO")
+        toast.error("Failed to process PO")
       }
     } catch {
       toast.error("An unexpected error occurred.")
@@ -178,7 +205,9 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
   return (
     <div className="flex-1 space-y-6 p-6">
        <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Nouvel achat</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {isEditing ? `Modifier l'achat - ${initialData?.id}` : "Nouvel achat"}
+        </h1>
       </div>
 
       {/* Supplier Selector */}
@@ -236,7 +265,7 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
               <TableRow>
                 <TableHead>Produit</TableHead>
                 <TableHead className="w-[100px]">Quantité</TableHead>
-                <TableHead className="w-[150px]">Prix d'achat (MAD)</TableHead>
+                <TableHead className="w-[150px]">Prix d&apos;achat (MAD)</TableHead>
                 <TableHead className="text-right">Total ligne</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -348,7 +377,7 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
       <div className="flex justify-end gap-3 pb-8">
         <Button variant="outline" onClick={() => router.back()}>Annuler</Button>
         <Button disabled={!canSubmit || submitting} onClick={handleSubmit}>
-          {submitting ? "Création..." : "Créer le bon de commande"}
+          {submitting ? "Traitement..." : (isEditing ? "Mettre à jour" : "Créer le bon de commande")}
         </Button>
       </div>
     </div>

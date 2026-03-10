@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import prisma from "@/lib/db"
 import { PurchaseOrderForm } from "@/components/purchase-order-form"
 
@@ -15,5 +16,9 @@ export default async function NewAchatPage() {
     }),
   ])
 
-  return <PurchaseOrderForm suppliers={suppliers} products={products} />
+  return (
+    <Suspense fallback={<div>Chargement...</div>}>
+      <PurchaseOrderForm suppliers={suppliers} products={products} />
+    </Suspense>
+  )
 }

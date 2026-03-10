@@ -1,6 +1,5 @@
 import prisma from "@/lib/db"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -35,12 +34,10 @@ export default async function AchatsPage() {
     <div className="flex-1 space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Achats</h1>
-        <Button asChild>
-          <Link href="/achats/new">
-            <Plus className="h-4 w-4 mr-2" />
-            Nouvel achat
-          </Link>
-        </Button>
+        <Link href="/achats/new" className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+          <Plus className="h-4 w-4 mr-2" />
+          Nouvel achat
+        </Link>
       </div>
 
       <Card>
@@ -59,7 +56,9 @@ export default async function AchatsPage() {
               {achatsList.map((achat) => (
                 <TableRow key={achat.id}>
                   <TableCell className="font-mono font-medium">
-                    {achat.reference || `AC-${achat.id}`}
+                    <Link href={`/achats/${achat.id}`} className="hover:underline">
+                      {achat.reference || `AC-${achat.id}`}
+                    </Link>
                   </TableCell>
                   <TableCell>
                     {new Date(achat.created_at).toLocaleDateString("fr-MA")}
