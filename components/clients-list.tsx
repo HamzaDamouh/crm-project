@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
+import { EntityFormDialog } from "@/components/entity-form-dialog"
 
 interface Client {
   id: number
@@ -36,6 +37,8 @@ export function ClientsListClient({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+
+  const [createOpen, setCreateOpen] = React.useState(false)
 
   const queryFilter = searchParams.get("query") || ""
 
@@ -69,7 +72,13 @@ export function ClientsListClient({
 
   return (
     <div className="flex-1 p-6 space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nouveau client
+        </Button>
+      </div>
 
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -173,6 +182,12 @@ export function ClientsListClient({
           </Button>
         </div>
       </div>
+      
+      <EntityFormDialog 
+        open={createOpen} 
+        onOpenChange={setCreateOpen} 
+        defaultType="client"
+      />
     </div>
   )
 }

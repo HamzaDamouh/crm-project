@@ -7,7 +7,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
@@ -16,7 +15,10 @@ import {
 } from "@/components/ui/sheet"
 import { formatCurrency } from "@/lib/utils"
 import { paySupplier } from "@/app/actions/suppliers"
+import { EntityFormDialog } from "@/components/entity-form-dialog"
+import { deleteEntity } from "@/app/actions/entities"
 import { toast } from "sonner"
+import { Edit2, Trash2 } from "lucide-react"
 
 interface EntityInfo {
   id: number; name: string; type: string
@@ -72,6 +74,18 @@ export function FournisseurDetailClient({
     { key: "payments" as const, label: "Paiements", count: payments.length },
     { key: "debts" as const, label: "Transferts de dettes", count: debtTransfers.length },
   ]
+  const [editOpen, setEditOpen] = React.useState(false)
+
+  async function handleDelete() {
+    if (!confirm("Voulez-vous vraiment supprimer ce fournisseur ?")) return
+    const res = await deleteEntity(entity.id)
+    if (res.success) {
+      toast.success(res.message)
+      router.push("/fournisseurs")
+    } else {
+      toast.error(res.error)
+    }
+  }
 
   async function handleRecordPayment(e: React.FormEvent) {
     e.preventDefault()
@@ -111,7 +125,15 @@ export function FournisseurDetailClient({
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{entity.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight">{entity.name}</h1>
+            <Button variant="ghost" size="icon" onClick={() => setEditOpen(true)}>
+              <Edit2 className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleDelete}>
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </Button>
+          </div>
           <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
             <Badge variant="outline" className="capitalize">Fournisseur</Badge>
             {entity.phone && <span>📞 {entity.phone}</span>}
@@ -133,7 +155,7 @@ export function FournisseurDetailClient({
           </div>
           
           <Sheet open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-            <SheetTrigger asChild>
+            <SheetTrigger>
               <Button disabled={entity.balance_due <= 0}>Enregistrer un Paiement</Button>
             </SheetTrigger>
             <SheetContent>
@@ -332,6 +354,12 @@ export function FournisseurDetailClient({
           </CardContent>
         </Card>
       )}
+
+      <EntityFormDialog 
+        open={editOpen} 
+        onOpenChange={setEditOpen} 
+        entity={entity}
+      />
     </div>
   )
 }

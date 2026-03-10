@@ -7,7 +7,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Edit2, Trash2 } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
+import { EntityFormDialog } from "@/components/entity-form-dialog"
+import { deleteEntity } from "@/app/actions/entities"
+import { toast } from "sonner"
 
 interface EntityInfo {
   id: number; name: string; type: string
@@ -60,13 +65,33 @@ export function ClientDetailClient({
     { key: "payments" as const, label: "Paiements", count: payments.length },
     { key: "debts" as const, label: "Transferts de dettes", count: debtTransfers.length },
   ]
+  const [editOpen, setEditOpen] = React.useState(false)
+
+  async function handleDelete() {
+    if (!confirm("Voulez-vous vraiment supprimer ce client ?")) return
+    const res = await deleteEntity(entity.id)
+    if (res.success) {
+      toast.success(res.message)
+      router.push("/clients")
+    } else {
+      toast.error(res.error)
+    }
+  }
 
   return (
     <div className="flex-1 p-6 space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{entity.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight">{entity.name}</h1>
+            <Button variant="ghost" size="icon" onClick={() => setEditOpen(true)}>
+              <Edit2 className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleDelete}>
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </Button>
+          </div>
           <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
             <Badge variant="outline" className="capitalize">{entity.type}</Badge>
             {entity.phone && <span>📞 {entity.phone}</span>}
@@ -255,6 +280,12 @@ export function ClientDetailClient({
           </CardContent>
         </Card>
       )}
+
+      <EntityFormDialog 
+        open={editOpen} 
+        onOpenChange={setEditOpen} 
+        entity={entity}
+      />
     </div>
   )
 }
