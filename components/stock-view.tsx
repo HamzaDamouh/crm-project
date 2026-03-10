@@ -9,11 +9,19 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { AlertTriangle, ChevronDown, ChevronRight, Search, X, ArrowDownCircle, ArrowUpCircle } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
+
+interface PurchaseHistoryLine {
+  id: number; date: string; supplierName: string
+  qty: number; unitCost: number
+}
 
 interface Product {
   id: number; name: string; reference: string | null
   stock_qty: number; stock_min: number; unit: string | null
   is_active: boolean; category: string
+  purchaseHistory: PurchaseHistoryLine[]
+  averageUnitCost: number | null
 }
 
 interface Movement {
@@ -44,6 +52,7 @@ export function StockClient({
   const [search, setSearch] = React.useState("")
   const [alertsOpen, setAlertsOpen] = React.useState(true)
   const [selectedProductId, setSelectedProductId] = React.useState<number | null>(null)
+  const [panelTab, setPanelTab] = React.useState<"movements" | "purchases">("movements")
 
   const alerts = products.filter((p) => p.stock_qty <= p.stock_min && p.is_active)
 
@@ -192,36 +201,83 @@ export function StockClient({
               <span>Minimum</span>
               <span>{selectedProduct.stock_min} {selectedProduct.unit}</span>
             </div>
+            {selectedProduct.averageUnitCost !== null && (
+              <div className="flex justify-between text-sm mt-2 pt-2 border-t">
+                <span>Coût Moyen (PUMP)</span>
+                <span className="font-semibold text-blue-700">
+                  {formatCurrency(selectedProduct.averageUnitCost)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex border-b text-sm">
+            <button
+              onClick={() => setPanelTab("movements")}
+              className={`flex-1 py-2 text-center font-medium ${panelTab === "movements" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Mouvements
+            </button>
+            <button
+              onClick={() => setPanelTab("purchases")}
+              className={`flex-1 py-2 text-center font-medium ${panelTab === "purchases" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Achats
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
-            <h4 className="text-sm font-semibold text-muted-foreground mb-3">Historique des mouvements</h4>
-            {selectedMovements.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Aucun mouvement enregistré.</p>
-            ) : (
-              <div className="space-y-2">
-                {selectedMovements.map((m) => (
-                  <div key={m.id} className="flex items-start gap-3 text-sm border-b pb-2">
-                    {m.movement_type === "in" ? (
-                      <ArrowDownCircle className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
-                    ) : (
-                      <ArrowUpCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-                    )}
-                    <div className="flex-1">
-                      <div className="flex justify-between">
-                        <span className={m.movement_type === "in" ? "text-green-600 font-medium" : "text-red-500 font-medium"}>
-                          {m.movement_type === "in" ? "+" : "-"}{m.qty}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(m.created_at).toLocaleDateString("fr-MA")}
-                        </span>
+            {panelTab === "movements" ? (
+              <div className="space-y-4">
+                {selectedMovements.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Aucun mouvement enregistré.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedMovements.map((m) => (
+                      <div key={m.id} className="flex items-start gap-3 text-sm border-b pb-2">
+                        {m.movement_type === "in" ? (
+                          <ArrowDownCircle className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <ArrowUpCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex justify-between">
+                            <span className={m.movement_type === "in" ? "text-green-600 font-medium" : "text-red-500 font-medium"}>
+                              {m.movement_type === "in" ? "+" : "-"}{m.qty}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(m.created_at).toLocaleDateString("fr-MA")}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {m.note || (m.reference_type ? `${m.reference_type} n°${m.reference_id}` : "Aucun détail")}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {m.note || (m.reference_type ? `${m.reference_type} n°${m.reference_id}` : "Aucun détail")}
-                      </p>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {selectedProduct.purchaseHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Aucun historique d'achat.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedProduct.purchaseHistory.map(ph => (
+                      <div key={ph.id} className="flex flex-col text-sm border-b pb-2">
+                         <div className="flex justify-between font-medium">
+                           <span>{ph.supplierName}</span>
+                           <span>{formatCurrency(ph.unitCost * ph.qty)}</span>
+                         </div>
+                         <div className="flex justify-between text-muted-foreground text-xs mt-1">
+                           <span>{ph.qty} {selectedProduct.unit} à {formatCurrency(ph.unitCost)}/u</span>
+                           <span>{new Date(ph.date).toLocaleDateString("fr-MA")}</span>
+                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

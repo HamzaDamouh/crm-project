@@ -6,7 +6,7 @@ export default async function MonthEndPage() {
     where: { invoiced: false },
     orderBy: { log_date: "desc" },
     include: {
-      product: { select: { id: true, name: true, reference: true } },
+      product: { select: { id: true, name: true, reference: true, tax_rate: true } },
     },
   })
 

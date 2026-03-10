@@ -31,6 +31,7 @@ export default async function NewTransactionPage() {
         name: p.name,
         reference: p.reference,
         stock_qty: p.stock_qty,
+        tax_rate: p.tax_rate,
         priceTiers: p.priceTiers.map((t) => ({
           id: t.id,
           min_qty: t.min_qty,
