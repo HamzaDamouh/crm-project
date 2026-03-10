@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table"
 import { TopClientsChart } from "@/components/top-clients-chart"
 import { AgingReceivablesChart } from "@/components/aging-receivables-chart"
-import { DollarSign, FileWarning, AlertTriangle, ShoppingBag, TrendingUp, CreditCard } from "lucide-react"
+import { DollarSign, FileWarning, AlertTriangle, ShoppingBag, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { formatCurrency } from "@/lib/utils"
 import { DashboardPaymentButton } from "@/components/dashboard-payment-button"
@@ -33,11 +33,11 @@ export default async function DashboardPage() {
       lines: true,
     },
   })
-  const totalSalesThisMonth = paidInvoicesThisMonth.reduce((sum: number, inv: any) => sum + inv.total, 0)
+  const totalSalesThisMonth = paidInvoicesThisMonth.reduce((sum: number, inv) => sum + inv.total, 0)
 
   // Gross Profit This Month (Revenue - COGS)
-  const totalCOGSThisMonth = paidInvoicesThisMonth.reduce((sum: number, inv: any) => {
-    const invoiceCOGS = inv.lines.reduce((lineSum: number, line: any) => {
+  const totalCOGSThisMonth = paidInvoicesThisMonth.reduce((sum: number, inv) => {
+    const invoiceCOGS = inv.lines.reduce((lineSum: number, line) => {
       return lineSum + (line.qty * (line.unit_cost || 0))
     }, 0)
     return sum + invoiceCOGS
@@ -50,11 +50,11 @@ export default async function DashboardPage() {
     where: { balance_due: { gt: 0 } },
   })
   const unpaidCount = unpaidInvoices.length
-  const unpaidTotal = unpaidInvoices.reduce((sum: number, inv: any) => sum + inv.balance_due, 0)
+  const unpaidTotal = unpaidInvoices.reduce((sum: number, inv) => sum + inv.balance_due, 0)
 
   // Low Stock Alerts
   const allProducts = await prisma.product.findMany()
-  const lowStockProducts = allProducts.filter((p: any) => p.stock_qty <= p.stock_min)
+  const lowStockProducts = allProducts.filter((p) => p.stock_qty <= p.stock_min)
   const lowStockCount = lowStockProducts.length
 
   // Pending Walk-in Sales
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
     include: { entity: true },
   })
   const revenueByClient: Record<string, number> = {}
-  for (const inv of allPaidInvoices as any[]) {
+  for (const inv of allPaidInvoices) {
     const name = inv.entity.name
     revenueByClient[name] = (revenueByClient[name] || 0) + inv.total
   }
@@ -111,7 +111,7 @@ export default async function DashboardPage() {
     { range: "60+ days", amount: 0 },
   ]
 
-  unpaidInvoices.forEach((inv: any) => {
+  unpaidInvoices.forEach((inv) => {
     const issueDate = new Date(inv.issue_date || inv.created_at)
     const diffMs = now.getTime() - issueDate.getTime()
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
@@ -243,7 +243,7 @@ export default async function DashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recentInvoices.map((inv: any) => (
+              {recentInvoices.map((inv) => (
                 <TableRow key={inv.id}>
                    <TableCell className="font-medium">{inv.entity.name}</TableCell>
                   <TableCell>{inv.invoice_number || "—"}</TableCell>
@@ -291,7 +291,7 @@ export default async function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lowStockProducts.map((p: any) => {
+                {lowStockProducts.map((p) => {
                   const isCritical = p.stock_qty === 0
                   return (
                     <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50 transition-colors">

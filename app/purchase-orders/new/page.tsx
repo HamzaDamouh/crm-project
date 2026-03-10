@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import prisma from "@/lib/db"
 import { PurchaseOrderForm } from "@/components/purchase-order-form"
 
@@ -13,18 +14,20 @@ export default async function NewPurchaseOrderPage() {
   })
 
   return (
-    <PurchaseOrderForm
-      suppliers={suppliers.map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        type: s.type,
-      }))}
-      products={products.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        reference: p.reference,
-        stock_qty: p.stock_qty,
-      }))}
-    />
+    <Suspense fallback={<div>Chargement...</div>}>
+      <PurchaseOrderForm
+        suppliers={suppliers.map((s) => ({
+          id: s.id,
+          name: s.name,
+          type: s.type,
+        }))}
+        products={products.map((p) => ({
+          id: p.id,
+          name: p.name,
+          reference: p.reference,
+          stock_qty: p.stock_qty,
+        }))}
+      />
+    </Suspense>
   )
 }

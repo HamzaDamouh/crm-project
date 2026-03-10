@@ -18,7 +18,7 @@ export default async function InvoicesPage({
   const pageSize = 10
   const skip = (page - 1) * pageSize
 
-  const where: any = {
+  const where: import("@prisma/client").Prisma.InvoiceWhereInput = {
     AND: [
       query
         ? {
@@ -34,13 +34,13 @@ export default async function InvoicesPage({
 
   // Handle status filter specifically to match the logic in components/invoice-list.tsx
   if (status === "paid") {
-    where.AND.push({ balance_due: 0 })
+    (where.AND as import("@prisma/client").Prisma.InvoiceWhereInput[]).push({ balance_due: 0 })
   } else if (status === "unpaid") {
-    where.AND.push({ balance_due: { gt: 0 }, amount_paid: 0 })
+    (where.AND as import("@prisma/client").Prisma.InvoiceWhereInput[]).push({ balance_due: { gt: 0 }, amount_paid: 0 })
   } else if (status === "partial") {
-    where.AND.push({ balance_due: { gt: 0 }, amount_paid: { gt: 0 } })
+    (where.AND as import("@prisma/client").Prisma.InvoiceWhereInput[]).push({ balance_due: { gt: 0 }, amount_paid: { gt: 0 } })
   } else if (status === "draft") {
-    where.AND.push({ status: "draft" })
+    (where.AND as import("@prisma/client").Prisma.InvoiceWhereInput[]).push({ status: "draft" })
   }
 
   const [invoices, totalCount] = await Promise.all([

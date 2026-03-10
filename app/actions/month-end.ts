@@ -33,9 +33,11 @@ export async function generateConsolidatedInvoice(
       }
     })
     
-    const productTaxMap = new Map<number, number>(products.map((p: any) => [p.id, p.tax_rate]))
+    type ProductWithHistory = { id: number; tax_rate: number; purchaseOrderLines: { unit_cost: number }[] }
+    
+    const productTaxMap = new Map<number, number>(products.map((p: ProductWithHistory) => [p.id, p.tax_rate]))
     const productCostMap = new Map<number, number>(
-      products.map((p: any) => [p.id, p.purchaseOrderLines[0]?.unit_cost ?? 0])
+      products.map((p: ProductWithHistory) => [p.id, p.purchaseOrderLines[0]?.unit_cost ?? 0])
     )
     
     // Calculate total tax amount

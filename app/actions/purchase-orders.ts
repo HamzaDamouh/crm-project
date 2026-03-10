@@ -73,9 +73,9 @@ export async function receivePurchaseOrder(orderId: number) {
     revalidatePath("/purchase-orders")
 
     return result
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error receiving purchase order:", error)
-    return { success: false, error: error.message || "An unexpected error occurred." }
+    return { success: false, error: error instanceof Error ? error.message : "An unexpected error occurred." }
   }
 }
 
@@ -160,8 +160,8 @@ export async function createPurchaseOrder(data: {
     revalidatePath("/dashboard")
 
     return result
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error creating purchase order:", error)
-    return { success: false, error: error.message || "An unexpected error occurred." }
+    return { success: false, error: error instanceof Error ? error.message : "An unexpected error occurred." }
   }
 }
