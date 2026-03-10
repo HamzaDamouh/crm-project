@@ -12,9 +12,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
+} from "@/components/ui/sheet"
 import { formatCurrency } from "@/lib/utils"
 import { paySupplier } from "@/app/actions/suppliers"
 import { toast } from "sonner"
@@ -133,14 +132,14 @@ export function FournisseurDetailClient({
             </p>
           </div>
           
-          <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-            <DialogTrigger asChild>
+          <Sheet open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+            <SheetTrigger asChild>
               <Button disabled={entity.balance_due <= 0}>Enregistrer un Paiement</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Enregistrer un paiement pour {entity.name}</DialogTitle>
-              </DialogHeader>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>Enregistrer un paiement pour {entity.name}</SheetTitle>
+              </SheetHeader>
               <form onSubmit={handleRecordPayment} className="space-y-4 pt-4">
                 <div className="space-y-2">
                   <Label>Solde actuel</Label>
@@ -154,30 +153,30 @@ export function FournisseurDetailClient({
                     step="0.01" 
                     max={entity.balance_due} 
                     value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPaymentAmount(e.target.value)}
                     required 
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label>Méthode de paiement</Label>
-                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Espèces</SelectItem>
-                      <SelectItem value="transfer">Virement Bancaire</SelectItem>
-                      <SelectItem value="cheque">Chèque</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <select 
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={paymentMethod} 
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPaymentMethod(e.target.value)}
+                  >
+                    <option value="cash">Espèces</option>
+                    <option value="transfer">Virement Bancaire</option>
+                    <option value="cheque">Chèque</option>
+                  </select>
                 </div>
 
                 <div className="space-y-2">
                   <Label>Notes (optionnel)</Label>
-                  <Textarea 
+                  <textarea 
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={paymentNotes}
-                    onChange={(e) => setPaymentNotes(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPaymentNotes(e.target.value)}
                     placeholder="Référence du virement, etc."
                   />
                 </div>
@@ -185,12 +184,12 @@ export function FournisseurDetailClient({
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setPaymentDialogOpen(false)}>Annuler</Button>
                   <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? "Enregistrement..." : "Confirmer le paiement"}
+                    {isSubmitting ? "Enregistrement..." : "Confirmer"}
                   </Button>
                 </div>
               </form>
-            </DialogContent>
-          </Dialog>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
 

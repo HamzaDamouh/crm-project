@@ -153,7 +153,7 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
       })
       if (result.success && 'message' in result) {
         toast.success(result.message)
-        router.push("/dashboard")
+        router.push("/achats")
       } else if ('error' in result) {
         toast.error(result.error || "Failed to create PO")
       } else {
@@ -178,7 +178,7 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
   return (
     <div className="flex-1 space-y-6 p-6">
        <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Nouveau bon de commande</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Nouvel achat</h1>
       </div>
 
       {/* Supplier Selector */}
@@ -236,7 +236,7 @@ export function PurchaseOrderForm({ suppliers, products }: PurchaseOrderFormProp
               <TableRow>
                 <TableHead>Produit</TableHead>
                 <TableHead className="w-[100px]">Quantité</TableHead>
-                <TableHead className="w-[150px]">Coût unitaire (MAD)</TableHead>
+                <TableHead className="w-[150px]">Prix d'achat (MAD)</TableHead>
                 <TableHead className="text-right">Total ligne</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>

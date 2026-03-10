@@ -98,14 +98,56 @@ export async function createPurchaseOrder(data: {
       const purchaseOrder = await tx.purchaseOrder.create({
         data: {
           supplier_id: data.supplierId,
-          status: 'draft', // New POs start as draft
+          status: 'received', // Create directly as received
+          ordered_at: new Date(),
           notes: data.notes,
           lines: {
             create: data.lines.map((line) => ({
               product_id: line.productId,
               qty_ordered: line.qty,
+              qty_received: line.qty, // Fully received immediately
               unit_cost: line.unitCost,
             })),
+          },
+        },
+        include: { lines: true },
+      })
+
+      let totalCost = 0
+
+      // 2. Process each line: create StockMovement, and increment Product stock
+      for (const line of purchaseOrder.lines) {
+        totalCost += line.qty_ordered * line.unit_cost
+
+        // Create StockMovement
+        await tx.stockMovement.create({
+          data: {
+            product_id: line.product_id,
+            movement_type: 'in',
+            qty: line.qty_ordered,
+            reference_type: 'purchase_order',
+            reference_id: purchaseOrder.id,
+            note: `Achat - Bon de commande #${purchaseOrder.id}`,
+          },
+        })
+
+        // Increment stock_qty on Product
+        await tx.product.update({
+          where: { id: line.product_id },
+          data: {
+            stock_qty: {
+              increment: line.qty_ordered,
+            },
+          },
+        })
+      }
+
+      // 3. Update supplier's balance_due by adding the total purchase cost
+      await tx.entity.update({
+        where: { id: data.supplierId },
+        data: {
+          balance_due: {
+            increment: totalCost,
           },
         },
       })
