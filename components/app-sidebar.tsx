@@ -6,9 +6,11 @@ import { usePathname } from "next/navigation"
 import { 
   LayoutDashboard, 
   ShoppingCart, 
+  ShoppingBag,
   FileText, 
   Package, 
   Users, 
+  Truck,
   CalendarCheck, 
   CreditCard 
 } from "lucide-react"
@@ -27,10 +29,12 @@ import {
 
 const navItems = [
   { title: "Tableau de bord", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Transactions", url: "/transactions", icon: ShoppingCart },
+  { title: "Ventes", url: "/transactions", icon: ShoppingCart },
+  { title: "Achats", url: "/achats", icon: ShoppingBag },
   { title: "Factures", url: "/invoices", icon: FileText },
   { title: "Stock", url: "/stock", icon: Package },
   { title: "Clients", url: "/clients", icon: Users },
+  { title: "Fournisseurs", url: "/fournisseurs", icon: Truck },
   { title: "Clôture mensuelle", url: "/month-end", icon: CalendarCheck },
   { title: "Paiements", url: "/payments", icon: CreditCard },
 ]
