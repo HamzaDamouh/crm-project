@@ -5,7 +5,7 @@ export default async function StockPage() {
   const products = await prisma.product.findMany({
     orderBy: { name: "asc" },
     include: {
-      category: { select: { name: true } },
+      category: { select: { id: true, name: true } },
       purchaseOrderLines: {
         include: {
           purchaseOrder: {
@@ -17,6 +17,12 @@ export default async function StockPage() {
         orderBy: { purchaseOrder: { created_at: "desc" } },
       },
     },
+  })
+
+  // We need categories for the create product dropdown
+  const categories = await prisma.category.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
   })
 
   const stockMovements = await prisma.stockMovement.findMany({
@@ -53,8 +59,10 @@ export default async function StockPage() {
           unit: p.unit,
           is_active: p.is_active,
           category: p.category?.name || "Uncategorized",
+          category_id: p.category?.id || null,
           purchaseHistory,
           averageUnitCost,
+          taxRate: p.tax_rate || 20,
         };
       })}
       movements={stockMovements.map((m) => ({
@@ -67,6 +75,7 @@ export default async function StockPage() {
         note: m.note,
         created_at: m.created_at.toISOString(),
       }))}
+      categories={categories}
     />
   )
 }

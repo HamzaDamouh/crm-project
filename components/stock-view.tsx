@@ -8,8 +8,11 @@ import { Input } from "@/components/ui/input"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { AlertTriangle, ChevronDown, ChevronRight, Search, X, ArrowDownCircle, ArrowUpCircle } from "lucide-react"
+import { AlertTriangle, ChevronDown, ChevronRight, Search, X, ArrowDownCircle, ArrowUpCircle, Plus, Edit2, Trash2 } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
+import { ProductFormDialog } from "@/components/product-form-dialog"
+import { deleteProduct, adjustStock } from "@/app/actions/products"
+import { toast } from "sonner"
 
 interface PurchaseHistoryLine {
   id: number; date: string; supplierName: string
@@ -19,7 +22,8 @@ interface PurchaseHistoryLine {
 interface Product {
   id: number; name: string; reference: string | null
   stock_qty: number; stock_min: number; unit: string | null
-  is_active: boolean; category: string
+  is_active: boolean; category: string; category_id: number | null
+  taxRate: number
   purchaseHistory: PurchaseHistoryLine[]
   averageUnitCost: number | null
 }
@@ -45,14 +49,25 @@ function stockCellColor(qty: number, min: number) {
 export function StockClient({
   products,
   movements,
+  categories,
 }: {
   products: Product[]
   movements: Movement[]
+  categories: { id: number; name: string }[]
 }) {
   const [search, setSearch] = React.useState("")
   const [alertsOpen, setAlertsOpen] = React.useState(true)
   const [selectedProductId, setSelectedProductId] = React.useState<number | null>(null)
   const [panelTab, setPanelTab] = React.useState<"movements" | "purchases">("movements")
+  
+  // Modals state
+  const [createOpen, setCreateOpen] = React.useState(false)
+  const [editOpen, setEditOpen] = React.useState(false)
+  
+  // Stock adjustment state
+  const [adjustingStock, setAdjustingStock] = React.useState(false)
+  const [newStockQty, setNewStockQty] = React.useState("")
+  const [adjustNote, setAdjustNote] = React.useState("")
 
   const alerts = products.filter((p) => p.stock_qty <= p.stock_min && p.is_active)
 
@@ -71,9 +86,45 @@ export function StockClient({
     ? movements.filter((m) => m.product_id === selectedProductId)
     : []
 
+
+  async function handleDelete(id: number) {
+     if (!confirm("Voulez-vous vraiment supprimer ce produit ?")) return
+     const res = await deleteProduct(id)
+     if (res.success) {
+       toast.success(res.message)
+       setSelectedProductId(null)
+     } else {
+       toast.error(res.error)
+     }
+  }
+
+  async function handleAdjustStock() {
+    if (!selectedProductId || !newStockQty) return
+    const qty = parseFloat(newStockQty)
+    if (isNaN(qty)) {
+      toast.error("Quantité invalide")
+      return
+    }
+    const res = await adjustStock(selectedProductId, qty, adjustNote)
+    if (res.success) {
+      toast.success(res.message)
+      setAdjustingStock(false)
+      setNewStockQty("")
+      setAdjustNote("")
+    } else {
+      toast.error(res.error)
+    }
+  }
+
   return (
     <div className="flex-1 p-6 space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Stock et Inventaire</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">Stock et Inventaire</h1>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nouveau produit
+        </Button>
+      </div>
 
       {/* SECTION 1: Alerts */}
       {alerts.length > 0 && (
@@ -185,9 +236,17 @@ export function StockClient({
               <h3 className="font-semibold">{selectedProduct.name}</h3>
               <p className="text-sm text-muted-foreground">{selectedProduct.reference}</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedProductId(null)}>
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={() => setEditOpen(true)}>
+                <Edit2 className="h-4 w-4 text-muted-foreground" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => handleDelete(selectedProduct.id)}>
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setSelectedProductId(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           <div className="p-4 border-b bg-muted/30">
@@ -201,6 +260,38 @@ export function StockClient({
               <span>Minimum</span>
               <span>{selectedProduct.stock_min} {selectedProduct.unit}</span>
             </div>
+            
+            {/* Quick Adjust Button */}
+            {!adjustingStock ? (
+              <Button variant="outline" size="sm" className="w-full mt-3 h-8" onClick={() => {
+                setAdjustingStock(true)
+                setNewStockQty(selectedProduct.stock_qty.toString())
+              }}>
+                Ajuster le stock
+              </Button>
+            ) : (
+              <div className="mt-3 p-3 bg-white rounded-md border text-xs space-y-2">
+                <div>
+                  <label className="font-medium">Nouvelle Quantité Totale</label>
+                  <Input 
+                    type="number" step="0.01" className="h-8 mt-1" 
+                    value={newStockQty} onChange={(e) => setNewStockQty(e.target.value)} 
+                  />
+                </div>
+                <div>
+                  <label className="font-medium">Note (Raison)</label>
+                  <Input 
+                    className="h-8 mt-1" placeholder="Ex: Inventaire physique"
+                    value={adjustNote} onChange={(e) => setAdjustNote(e.target.value)} 
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" className="h-7 w-full" onClick={handleAdjustStock}>Valider</Button>
+                  <Button size="sm" variant="ghost" className="h-7 w-full" onClick={() => setAdjustingStock(false)}>Annuler</Button>
+                </div>
+              </div>
+            )}
+            
             {selectedProduct.averageUnitCost !== null && (
               <div className="flex justify-between text-sm mt-2 pt-2 border-t">
                 <span>Coût Moyen (PUMP)</span>
@@ -261,7 +352,7 @@ export function StockClient({
             ) : (
               <div className="space-y-4">
                 {selectedProduct.purchaseHistory.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Aucun historique d'achat.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">Aucun historique d&apos;achat.</p>
                 ) : (
                   <div className="space-y-3">
                     {selectedProduct.purchaseHistory.map(ph => (
@@ -282,6 +373,30 @@ export function StockClient({
             )}
           </div>
         </div>
+      )}
+
+      {/* Forms */}
+      <ProductFormDialog 
+        open={createOpen} 
+        onOpenChange={setCreateOpen} 
+        categories={categories} 
+      />
+      
+      {selectedProduct && (
+        <ProductFormDialog 
+          open={editOpen} 
+          onOpenChange={setEditOpen} 
+          categories={categories} 
+          product={{
+            id: selectedProduct.id,
+            name: selectedProduct.name,
+            reference: selectedProduct.reference,
+            category_id: selectedProduct.category_id,
+            unit: selectedProduct.unit,
+            stock_min: selectedProduct.stock_min,
+            tax_rate: selectedProduct.taxRate
+          }}
+        />
       )}
     </div>
   )
