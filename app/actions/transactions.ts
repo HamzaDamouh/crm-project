@@ -1,6 +1,7 @@
 "use server"
 
 import prisma from "@/lib/db"
+import { Prisma } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 
 interface LineItem {
@@ -18,169 +19,207 @@ interface TransactionData {
   total: number
 }
 
-async function updateStock(lines: LineItem[], referenceType: string, referenceId: number) {
-  for (const line of lines) {
-    // Create stock movement (out)
-    await prisma.stockMovement.create({
-      data: {
-        product_id: line.productId,
-        movement_type: "out",
-        qty: line.qty,
-        reference_type: referenceType,
-        reference_id: referenceId,
-        note: `${referenceType} #${referenceId}`,
-      },
-    })
-
-    // Decrease product stock
-    await prisma.product.update({
-      where: { id: line.productId },
-      data: { stock_qty: { decrement: line.qty } },
-    })
-  }
-}
-
 export async function saveAsTransaction(data: TransactionData) {
   try {
-    // Save each line as a daily_sales_log entry
-    const logDate = new Date()
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const logDate = new Date()
+      let totalWalkInSaleAmount = 0
 
-    for (const line of data.lines) {
-      const log = await prisma.dailySalesLog.create({
-        data: {
-          entity_id: data.entityId > 0 ? data.entityId : null,
-          log_date: logDate,
-          product_id: line.productId,
-          qty: line.qty,
-          unit_price: line.unitPrice,
-          total: line.lineTotal,
-          note: data.entityId > 1 ? `Sale to entity #${data.entityId}` : "Walk-in sale",
-          invoiced: false,
-        },
-      })
+      for (const line of data.lines) {
+        // Guard against negative stock
+        const product = await tx.product.findUnique({ where: { id: line.productId } })
+        if (!product) throw new Error(`Produit #${line.productId} introuvable.`)
+        if (product.stock_qty < line.qty) {
+          throw new Error(
+            `Stock insuffisant pour "${product.name}": ${product.stock_qty} disponible(s), ${line.qty} demandé(s).`
+          )
+        }
 
-      // Update stock for each line
-      await prisma.stockMovement.create({
-        data: {
-          product_id: line.productId,
-          movement_type: "out",
-          qty: line.qty,
-          reference_type: "daily_sales_log",
-          reference_id: log.id,
-          note: `Walk-in sale`,
-        },
-      })
+        const log = await tx.dailySalesLog.create({
+          data: {
+            entity_id: data.entityId > 0 ? data.entityId : null,
+            log_date: logDate,
+            product_id: line.productId,
+            qty: line.qty,
+            unit_price: line.unitPrice,
+            total: line.lineTotal,
+            note: data.entityId > 0 ? `Sale to entity #${data.entityId}` : "Walk-in sale",
+            invoiced: false,
+          },
+        })
 
-      await prisma.product.update({
-        where: { id: line.productId },
-        data: { stock_qty: { decrement: line.qty } },
-      })
-    }
+        // Accumulate total for the entity balance update
+        totalWalkInSaleAmount += line.lineTotal
+
+        // Create stock movement and decrement stock
+        await tx.stockMovement.create({
+          data: {
+            product_id: line.productId,
+            movement_type: "out",
+            qty: line.qty,
+            reference_type: "daily_sales_log",
+            reference_id: log.id,
+            note: `Vente comptoir`,
+          },
+        })
+
+        await tx.product.update({
+          where: { id: line.productId },
+          data: { stock_qty: { decrement: line.qty } },
+        })
+      }
+
+      // If this is a named entity, update their balance immediately (Fix #7)
+      if (data.entityId > 0 && totalWalkInSaleAmount > 0) {
+        // Also add taxes since lineTotal is ex-VAT
+        const finalTotal = data.total
+        await tx.entity.update({
+          where: { id: data.entityId },
+          data: { balance_due: { increment: finalTotal } },
+        })
+      }
+    })
 
     revalidatePath("/dashboard")
     revalidatePath("/transactions")
+    revalidatePath("/stock")
 
     return { success: true, message: "Transaction enregistrée avec succès !" }
   } catch (error) {
     console.error("Error saving transaction:", error)
-    return { success: false, message: "Échec de l'enregistrement de la transaction." }
+    const msg = error instanceof Error ? error.message : "Échec de l'enregistrement de la transaction."
+    return { success: false, message: msg }
   }
 }
 
 export async function generateInvoice(data: TransactionData) {
   try {
-    // Generate invoice number
-    const lastInvoice = await prisma.invoice.findFirst({
-      where: { type: "invoice" },
-      orderBy: { id: "desc" },
-    })
-    const nextNum = lastInvoice ? lastInvoice.id + 1 : 1
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(nextNum).padStart(3, "0")}`
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Generate sequential invoice number (collision-proof inside transaction)
+      const count = await tx.invoice.count({ where: { type: "invoice" } })
+      const invoiceNumber = `FA-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`
 
-    // Fetch products to get their tax rates and latest unit cost
-    const productIds = data.lines.map(l => l.productId)
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
-      select: { 
-        id: true, 
-        tax_rate: true,
-        purchaseOrderLines: {
-          orderBy: { id: "desc" },
-          take: 1,
-          select: { unit_cost: true }
+      // Fetch products for tax rates, unit costs and stock check
+      const productIds = data.lines.map(l => l.productId)
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+        include: {
+          purchaseOrderLines: {
+            orderBy: { id: "desc" },
+            take: 1,
+            select: { unit_cost: true }
+          }
+        }
+      })
+
+      const productMap = new Map(products.map(p => [p.id, p]))
+
+      // Guard against negative stock
+      for (const line of data.lines) {
+        const product = productMap.get(line.productId)
+        if (!product) throw new Error(`Produit #${line.productId} introuvable.`)
+        if (product.stock_qty < line.qty) {
+          throw new Error(
+            `Stock insuffisant pour "${product.name}": ${product.stock_qty} disponible(s), ${line.qty} demandé(s).`
+          )
         }
       }
-    })
-    
-    type ProductWithHistory = { id: number; tax_rate: number; purchaseOrderLines: { unit_cost: number }[] }
-    
-    const productTaxMap = new Map<number, number>(products.map((p: ProductWithHistory) => [p.id, p.tax_rate]))
-    const productCostMap = new Map<number, number>(
-      products.map((p: ProductWithHistory) => [p.id, p.purchaseOrderLines[0]?.unit_cost ?? 0])
-    )
-    
-    // Calculate total tax amount based on individual product rates
-    const calculatedTaxAmount = data.lines.reduce((sum, line) => {
-      const taxRate = productTaxMap.get(line.productId) ?? 20
-      return sum + (Number(line.lineTotal) * (Number(taxRate) / 100))
-    }, 0)
-    
-    const finalTaxAmount = Math.round(calculatedTaxAmount * 100) / 100
-    const finalTotal = Math.round((data.subtotal + finalTaxAmount) * 100) / 100
 
-    // Create the invoice record
-    const invoice = await prisma.invoice.create({
-      data: {
-        entity_id: data.entityId,
-        type: "invoice",
-        status: "draft",
-        invoice_number: invoiceNumber,
-        issue_date: new Date(),
-        subtotal: data.subtotal,
-        tax_rate: 0, // No longer a single global rate
-        tax_amount: finalTaxAmount,
-        total: finalTotal,
-        amount_paid: 0,
-        balance_due: finalTotal,
-        lines: {
-          create: data.lines.map((line) => ({
-            product_id: line.productId,
-            qty: line.qty,
-            catalog_price: line.unitPrice,
-            unit_price: line.unitPrice,
-            unit_cost: productCostMap.get(line.productId) ?? 0,
-            line_total: line.lineTotal,
-          })),
-        },
-      },
-    })
+      // Calculate tax per line based on individual product rates
+      const calculatedTaxAmount = data.lines.reduce((sum, line) => {
+        const product = productMap.get(line.productId)
+        const taxRate = product?.tax_rate ?? 20
+        return sum + (Number(line.lineTotal) * (Number(taxRate) / 100))
+      }, 0)
 
-    // Update stock via stock movement
-    await updateStock(data.lines, "invoice", invoice.id)
+      const finalTaxAmount = Math.round(calculatedTaxAmount * 100) / 100
+      const finalTotal = Math.round((data.subtotal + finalTaxAmount) * 100) / 100
 
-    // Log the daily sales with invoiced: true
-    const logDate = new Date()
-    for (const line of data.lines) {
-      await prisma.dailySalesLog.create({
+      // Create the invoice
+      const invoice = await tx.invoice.create({
         data: {
-          entity_id: data.entityId > 0 ? data.entityId : null,
-          log_date: logDate,
-          product_id: line.productId,
-          qty: line.qty,
-          unit_price: line.unitPrice,
-          total: line.lineTotal,
-          note: `Invoiced directly: ${invoice.invoice_number}`,
-          invoiced: true,
+          entity_id: data.entityId,
+          type: "invoice",
+          status: "open",
+          invoice_number: invoiceNumber,
+          issue_date: new Date(),
+          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          subtotal: data.subtotal,
+          tax_rate: 0,
+          tax_amount: finalTaxAmount,
+          total: finalTotal,
+          amount_paid: 0,
+          balance_due: finalTotal,
+          lines: {
+            create: data.lines.map((line) => {
+              const product = productMap.get(line.productId)
+              return {
+                product_id: line.productId,
+                qty: line.qty,
+                catalog_price: line.unitPrice,
+                unit_price: line.unitPrice,
+                unit_cost: product?.purchaseOrderLines[0]?.unit_cost ?? 0,
+                line_total: line.lineTotal,
+              }
+            }),
+          },
         },
       })
-    }
+
+      // Update stock for each line
+      for (const line of data.lines) {
+        await tx.stockMovement.create({
+          data: {
+            product_id: line.productId,
+            movement_type: "out",
+            qty: line.qty,
+            reference_type: "invoice",
+            reference_id: invoice.id,
+            note: `Facture ${invoiceNumber}`,
+          },
+        })
+
+        await tx.product.update({
+          where: { id: line.productId },
+          data: { stock_qty: { decrement: line.qty } },
+        })
+      }
+
+      // Update entity balance_due (FIX #1)
+      await tx.entity.update({
+        where: { id: data.entityId },
+        data: { balance_due: { increment: finalTotal } },
+      })
+
+      // Log daily sales as invoiced
+      const logDate = new Date()
+      for (const line of data.lines) {
+        await tx.dailySalesLog.create({
+          data: {
+            entity_id: data.entityId > 0 ? data.entityId : null,
+            log_date: logDate,
+            product_id: line.productId,
+            qty: line.qty,
+            unit_price: line.unitPrice,
+            total: line.lineTotal,
+            note: `Facture directe: ${invoice.invoice_number}`,
+            invoiced: true,
+          },
+        })
+      }
+
+      return invoice
+    })
 
     revalidatePath("/dashboard")
     revalidatePath("/invoices")
+    revalidatePath("/stock")
+    revalidatePath("/clients")
 
-    return { success: true, message: "Facture générée !", invoiceId: invoice.id }
+    return { success: true, message: "Facture générée !", invoiceId: result.id }
   } catch (error) {
     console.error("Error generating invoice:", error)
-    return { success: false, message: "Échec de la génération de la facture." }
+    const msg = error instanceof Error ? error.message : "Échec de la génération de la facture."
+    return { success: false, message: msg }
   }
 }
