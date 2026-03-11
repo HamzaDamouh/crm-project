@@ -115,6 +115,20 @@ export async function generateCreditNote(invoiceId: number, items: ReturnItem[])
         where: { id: originalInvoice.entity_id },
         data: { balance_due: { decrement: total } },
       })
+      
+      // d. Deduct from original invoice balance
+      const newInvoiceBalance = Math.max(0, originalInvoice.balance_due - total)
+      const newInvoiceStatus = newInvoiceBalance <= 0 && originalInvoice.amount_paid + total >= originalInvoice.total 
+        ? "paid" 
+        : (originalInvoice.amount_paid + total > 0 ? "open" : originalInvoice.status)
+        
+      await tx.invoice.update({
+        where: { id: originalInvoice.id },
+        data: {
+          balance_due: newInvoiceBalance,
+          status: newInvoiceStatus
+        }
+      })
 
       return creditNote
     })

@@ -53,6 +53,7 @@ export async function deletePurchaseOrder(id: number) {
     return { success: true, message: "Bon de commande supprimé avec succès." }
   } catch (error) {
     console.error("Error deleting purchase order:", error)
+    return { success: false, error: "Erreur lors de la suppression." }
   }
 }
 

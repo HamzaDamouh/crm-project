@@ -107,7 +107,15 @@ export function MonthEndClientComponent({
     return entry.qty * getPrice(entry)
   }
 
-  const selectedEntriesList = entries.filter((e) => selectedEntryIds.has(e.id))
+  // Only consider entries that belong to the selected entity or are walk-ins (entity null)
+  const validEntriesForEntity = entries.filter((e) => {
+     // If the entry already belongs to someone else, we shouldn't steal it
+     const entryEntityId = (e as any).entity_id // Need to fetch this
+     if (entryEntityId && entryEntityId !== selectedEntityId) return false
+     return true
+  })
+  
+  const selectedEntriesList = validEntriesForEntity.filter((e) => selectedEntryIds.has(e.id))
   const runningTotal = selectedEntriesList.reduce((sum, e) => sum + getLineTotal(e), 0)
   const taxAmount = selectedEntriesList.reduce((sum, e) => {
     const lineTotal = getLineTotal(e)
@@ -185,9 +193,9 @@ export function MonthEndClientComponent({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {entries.length === 0 ? (
+          {validEntriesForEntity.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
-              Aucune transaction en attente à traiter.
+              Aucune transaction en attente à traiter pour ce client.
             </p>
           ) : (
             <Table>
@@ -210,7 +218,7 @@ export function MonthEndClientComponent({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map((entry) => {
+                {validEntriesForEntity.map((entry) => {
                   const isEdited =
                     editedPrices[entry.id] !== undefined &&
                     editedPrices[entry.id] !== entry.unit_price
