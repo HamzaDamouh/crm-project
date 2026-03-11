@@ -37,16 +37,10 @@ export async function recordPayment(data: RecordPaymentData) {
         throw new Error(`Amount exceeds balance due (${invoice.balance_due} MAD).`)
       }
 
-      // Check if the payer entity has enough balance for a debt transfer
+      // Check if the payer entity is valid for a debt transfer
       if (data.method === "debt_transfer" && data.paidByEntityId !== invoice.entity_id) {
         const payer = await tx.entity.findUnique({ where: { id: data.paidByEntityId } })
         if (!payer) throw new Error("Payer entity not found.")
-        // Debt transfer only works if the payer ACTUALLY owes us money (has a positive balance due)
-        if (payer.balance_due < data.amount) {
-           throw new Error(
-             `Le solde du client sélectionné (${payer.balance_due} MAD) est insuffisant pour un transfert de dette de ${data.amount} MAD.`
-           )
-        }
       }
 
       // 2. Create the payment record
@@ -83,13 +77,25 @@ export async function recordPayment(data: RecordPaymentData) {
         throw new Error("La facture a été modifiée par une autre transaction. Veuillez réessayer.")
       }
 
-      // 4. Update entity balance_due
-      await tx.entity.update({
-        where: { id: data.paidByEntityId },
-        data: {
-          balance_due: { decrement: data.amount },
-        },
-      })
+      // 4. Update entity balances
+      if (data.method === "debt_transfer" && data.paidByEntityId !== invoice.entity_id) {
+        // Debt transfer: B (payer) takes on A's (invoice owner) debt.
+        // B's debt to the store increases. A's debt to the store decreases.
+        await tx.entity.update({
+          where: { id: invoice.entity_id },
+          data: { balance_due: { decrement: data.amount } }
+        })
+        await tx.entity.update({
+          where: { id: data.paidByEntityId },
+          data: { balance_due: { increment: data.amount } }
+        })
+      } else {
+        // Normal payment (cash, cheque, transfer). Always decreases the invoice's entity balance.
+        await tx.entity.update({
+          where: { id: invoice.entity_id },
+          data: { balance_due: { decrement: data.amount } }
+        })
+      }
 
       // 5. If debt_transfer or paid by a different entity, create a debt transfer
       if (data.method === "debt_transfer" || data.paidByEntityId !== invoice.entity_id) {
