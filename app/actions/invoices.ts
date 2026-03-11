@@ -62,19 +62,26 @@ export async function recordPayment(data: RecordPaymentData) {
         },
       })
 
-      // 3. Update invoice amounts
+      // 3. Update invoice amounts with optimistic locking
       const newAmountPaid = invoice.amount_paid + data.amount
       const newBalanceDue = invoice.total - newAmountPaid
       const newStatus = newBalanceDue <= 0 ? "paid" : newAmountPaid > 0 ? "open" : invoice.status
 
-      await tx.invoice.update({
-        where: { id: data.invoiceId },
+      const updateResult = await tx.invoice.updateMany({
+        where: { 
+          id: data.invoiceId,
+          balance_due: invoice.balance_due
+        },
         data: {
           amount_paid: newAmountPaid,
           balance_due: Math.max(0, newBalanceDue),
           status: newStatus,
         },
       })
+
+      if (updateResult.count === 0) {
+        throw new Error("La facture a été modifiée par une autre transaction. Veuillez réessayer.")
+      }
 
       // 4. Update entity balance_due
       await tx.entity.update({
