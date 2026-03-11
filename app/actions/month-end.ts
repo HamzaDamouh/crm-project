@@ -89,11 +89,30 @@ export async function generateConsolidatedInvoice(
       },
     })
 
-    // Update entity balance
-    await prisma.entity.update({
-      where: { id: entityId },
-      data: { balance_due: { increment: total } },
-    })
+    // Update entity balance for purely the DIFFERENCE (Fix #7)
+    // The original walk-in sale already increased the balance by (catalogPrice + tax).
+    // Now we are replacing it with this invoice which has (editedPrice + tax).
+    // So we only increment by the difference (total - originalTotalWithTax).
+    
+    // Calculate the original total that was already added to the balance:
+    const originalSubtotal = lines.reduce((sum, l) => sum + l.qty * l.catalogPrice, 0)
+    const originalTaxAmount = lines.reduce((sum, l) => {
+      const taxRate = productTaxMap.get(l.productId) ?? 20
+      const lineTotal = Number(l.qty) * Number(l.catalogPrice)
+      return sum + (lineTotal * (Number(taxRate) / 100))
+    }, 0)
+    const originalRoundedTax = Math.round(originalTaxAmount * 100) / 100
+    const originalTotal = Math.round((originalSubtotal + originalRoundedTax) * 100) / 100
+    
+    const balanceAdjustment = total - originalTotal
+
+    // If there's an adjustment, apply it
+    if (balanceAdjustment !== 0) {
+      await prisma.entity.update({
+        where: { id: entityId },
+        data: { balance_due: { increment: balanceAdjustment } },
+      })
+    }
 
     // Mark all daily_sales_log entries as invoiced
     await prisma.dailySalesLog.updateMany({
