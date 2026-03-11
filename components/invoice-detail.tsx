@@ -1,11 +1,14 @@
 "use client"
 
 import * as React from "react"
+import { useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PaymentModal } from "@/components/payment-modal"
 import { Printer, CreditCard } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
+import { useReactToPrint } from "react-to-print"
+import { PrintableInvoice } from "@/components/printable-invoice"
 
 interface InvoiceLine {
   id: number
@@ -24,6 +27,7 @@ interface Payment {
   amount: number
   method: string
   payment_date: string | null
+  cheque_number: string | null
   paidByEntity: { name: string }
 }
 
@@ -78,24 +82,40 @@ export function InvoiceDetailClient({
   allEntities: AllEntity[]
 }) {
   const [paymentOpen, setPaymentOpen] = React.useState(false)
+  const componentRef = useRef<HTMLDivElement>(null)
 
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: `Facture_${invoice.invoice_number || invoice.id}`,
+  })
+
+  // Prevent default print styling from shrinking our component
+  // and handle the page break cleanly.
   const typeLabel = invoice.type === "credit_note" ? "Avoir" : "Facture"
 
   return (
     <>
       <style jsx global>{`
         @media print {
-          .no-print { display: none !important; }
-          body { background: white; }
+          body { 
+            background: white; 
+            margin: 0;
+            padding: 0;
+          }
           main { margin-left: 0 !important; }
+          .no-print { display: none !important; }
           [data-slot="sidebar-wrapper"] { display: none !important; }
+          @page {
+            size: A4 portrait;
+            margin: 0; /* Let our 210x297mm div handle its own margins */
+          }
         }
       `}</style>
 
       <div className="flex-1 p-6 max-w-4xl mx-auto">
         {/* Action buttons */}
         <div className="no-print flex gap-3 mb-6 justify-end">
-          <Button variant="outline" onClick={() => window.print()}>
+          <Button variant="outline" onClick={() => handlePrint()}>
             <Printer className="h-4 w-4 mr-2" /> Imprimer / Exporter PDF
           </Button>
           {invoice.balance_due > 0 && (
@@ -279,6 +299,11 @@ export function InvoiceDetailClient({
           onClose={() => setPaymentOpen(false)}
         />
       )}
+
+      {/* Hidden container for the print layout */}
+      <div className="hidden print:block">
+        <PrintableInvoice ref={componentRef} invoice={invoice} />
+      </div>
     </>
   )
 }

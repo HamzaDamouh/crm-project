@@ -110,7 +110,9 @@ export function MonthEndClientComponent({
   // Only consider entries that belong to the selected entity or are walk-ins (entity null)
   const validEntriesForEntity = entries.filter((e) => {
      // If the entry already belongs to someone else, we shouldn't steal it
-     const entryEntityId = (e as any).entity_id // Need to fetch this
+     // This requires `entity_id` to be added to the PendingEntry interface via the server action.
+     // For now, cast carefully using unknown.
+     const entryEntityId = (e as unknown as { entity_id?: number }).entity_id 
      if (entryEntityId && entryEntityId !== selectedEntityId) return false
      return true
   })

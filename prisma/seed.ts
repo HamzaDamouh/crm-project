@@ -187,7 +187,6 @@ async function main() {
 
   // Daily Sales Logs (~8 per week for 13 weeks = 104 entries)
   const daysIn3Months = 92
-  let logId = 1
   for(let day = 0; day < daysIn3Months; day++) {
     const date = new Date(startMs + day * 86400000)
     // Roughly 1-2 entries per day skips weekends

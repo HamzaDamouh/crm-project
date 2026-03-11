@@ -20,7 +20,7 @@ export async function recordPayment(data: RecordPaymentData) {
       return { success: false, message: "Payment amount must be greater than 0." }
     }
 
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // 1. Fetch invoice with lock to prevent race conditions
       // Using a raw query for FOR UPDATE if it was postgres, but for SQLite we don't have row-level locks.
       // We rely on the serializable nature of the transaction or check before update.
