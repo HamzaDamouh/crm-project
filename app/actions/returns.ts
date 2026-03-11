@@ -60,11 +60,14 @@ export async function generateCreditNote(invoiceId: number, items: ReturnItem[])
     const total = Math.round((subtotal + finalTaxAmount) * 100) / 100
 
     // 3. Generate unique credit note number
-    const count = await prisma.invoice.count({
-      where: { type: "credit_note" },
-    })
     const year = new Date().getFullYear()
-    const creditNoteNumber = `CN-${year}-${String(count + 1).padStart(3, "0")}`
+    const lastCN = await prisma.invoice.findFirst({
+      where: { type: "credit_note", invoice_number: { startsWith: `CN-${year}-` } },
+      orderBy: { invoice_number: "desc" },
+    })
+    const lastNumMatch = lastCN?.invoice_number?.match(/-(\d+)$/)
+    const lastNum = lastNumMatch ? parseInt(lastNumMatch[1], 10) : 0
+    const creditNoteNumber = `CN-${year}-${String(lastNum + 1).padStart(4, "0")}`
 
     // 4. Perform everything in a transaction
     const result = await prisma.$transaction(async (tx) => {

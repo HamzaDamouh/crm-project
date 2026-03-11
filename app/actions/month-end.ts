@@ -50,12 +50,15 @@ export async function generateConsolidatedInvoice(
     const roundedTaxAmount = Math.round(taxAmount * 100) / 100
     const total = Math.round((subtotal + roundedTaxAmount) * 100) / 100
 
-    // Generate invoice number
+    // Generate invoice number without collision
     const year = new Date().getFullYear()
-    const count = await prisma.invoice.count({
-      where: { type: "invoice" },
+    const lastInvoice = await prisma.invoice.findFirst({
+      where: { type: "invoice", invoice_number: { startsWith: `FA-${year}-` } },
+      orderBy: { invoice_number: "desc" },
     })
-    const invoiceNumber = `FA-${year}-${String(count + 1).padStart(3, "0")}`
+    const lastNumMatch = lastInvoice?.invoice_number?.match(/-(\d+)$/)
+    const lastNum = lastNumMatch ? parseInt(lastNumMatch[1], 10) : 0
+    const invoiceNumber = `FA-${year}-${String(lastNum + 1).padStart(4, "0")}`
 
     // Create the invoice
     const invoice = await prisma.invoice.create({

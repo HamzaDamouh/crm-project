@@ -96,8 +96,14 @@ export async function generateInvoice(data: TransactionData) {
   try {
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Generate sequential invoice number (collision-proof inside transaction)
-      const count = await tx.invoice.count({ where: { type: "invoice" } })
-      const invoiceNumber = `FA-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`
+      const year = new Date().getFullYear()
+      const lastInvoice = await tx.invoice.findFirst({
+        where: { type: "invoice", invoice_number: { startsWith: `FA-${year}-` } },
+        orderBy: { invoice_number: "desc" },
+      })
+      const lastNumMatch = lastInvoice?.invoice_number?.match(/-(\d+)$/)
+      const lastNum = lastNumMatch ? parseInt(lastNumMatch[1], 10) : 0
+      const invoiceNumber = `FA-${year}-${String(lastNum + 1).padStart(4, "0")}`
 
       // Fetch products for tax rates, unit costs and stock check
       const productIds = data.lines.map(l => l.productId)
