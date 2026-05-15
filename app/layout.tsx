@@ -43,9 +43,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
-        <div className="bg-yellow-400 text-yellow-900 text-sm font-semibold text-center py-1">
-          Environnement de démonstration — Easy Bricolage SARL 2024
-        </div>
+        
         <SidebarProvider defaultOpen>
           <AppSidebar pendingCount={pendingCount} />
           <main className="flex-1 flex flex-col w-full" style={{ paddingLeft: "16rem" }}>
