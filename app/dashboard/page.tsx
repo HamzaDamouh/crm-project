@@ -26,7 +26,7 @@ export default async function DashboardPage() {
 
   const paidInvoicesThisMonth = await prisma.invoice.findMany({
     where: {
-      status: "paid",
+      type: "invoice",
       issue_date: { gte: startOfMonth, lte: endOfMonth },
     },
     include: {
@@ -145,7 +145,7 @@ export default async function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalSalesThisMonth)}</div>
             <p className="text-xs text-muted-foreground">
-              {paidInvoicesThisMonth.length} facture(s) payée(s)
+              {paidInvoicesThisMonth.length} facture(s) émise(s)
             </p>
           </CardContent>
         </Card>

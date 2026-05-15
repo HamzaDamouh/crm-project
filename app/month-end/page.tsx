@@ -30,6 +30,7 @@ export default async function MonthEndPage() {
         unit_price: e.unit_price,
         total: e.total,
         product: e.product,
+        entity_id: e.entity_id,
       }))}
       entities={entities}
       currentMonth={currentMonth}

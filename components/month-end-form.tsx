@@ -28,6 +28,7 @@ interface PendingEntry {
   unit_price: number
   total: number
   product: { id: number; name: string; reference: string | null; tax_rate: number }
+  entity_id: number | null
 }
 
 interface Entity {
@@ -112,7 +113,7 @@ export function MonthEndClientComponent({
      // If the entry already belongs to someone else, we shouldn't steal it
      // This requires `entity_id` to be added to the PendingEntry interface via the server action.
      // For now, cast carefully using unknown.
-     const entryEntityId = (e as unknown as { entity_id?: number }).entity_id 
+     const entryEntityId = e.entity_id
      if (entryEntityId && entryEntityId !== selectedEntityId) return false
      return true
   })

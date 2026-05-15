@@ -21,9 +21,8 @@ export async function paySupplier(data: {
       return { success: false, error: "Fournisseur introuvable." }
     }
 
-    if (data.amount > supplier.balance_due) {
-      return { success: false, error: `Le montant dépasse le solde à payer (${supplier.balance_due} MAD).` }
-    }
+    // Removed balance check to allow advance payments (prepayments)
+    // which will result in a negative balance_due (meaning supplier owes us)
 
     await prisma.$transaction([
       prisma.payment.create({
