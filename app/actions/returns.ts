@@ -92,26 +92,29 @@ export async function generateCreditNote(invoiceId: number, items: ReturnItem[])
         },
       })
 
-      // b. Update stock and create movements for each item
-      for (const item of items) {
-        // Increase product stock
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock_qty: { increment: item.qty } },
-        })
-
-        // Create stock movement (in)
-        await tx.stockMovement.create({
-          data: {
-            product_id: item.productId,
-            movement_type: "in",
-            qty: item.qty,
-            reference_type: "invoice",
-            reference_id: creditNote.id,
-            note: `Return from Invoice #${originalInvoice.invoice_number || originalInvoice.id}`,
-          },
-        })
-      }
+      // b. Update stock and create movements for each item (batched)
+      await Promise.all(
+        items.map((item) =>
+          Promise.all([
+            // Increase product stock
+            tx.product.update({
+              where: { id: item.productId },
+              data: { stock_qty: { increment: item.qty } },
+            }),
+            // Create stock movement (in)
+            tx.stockMovement.create({
+              data: {
+                product_id: item.productId,
+                movement_type: "in",
+                qty: item.qty,
+                reference_type: "invoice",
+                reference_id: creditNote.id,
+                note: `Return from Invoice #${originalInvoice.invoice_number || originalInvoice.id}`,
+              },
+            }),
+          ])
+        )
+      )
 
       // c. Deduct from client's balance
       await tx.entity.update({

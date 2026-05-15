@@ -26,6 +26,9 @@ model Entity {
   invoices          Invoice[]
   paymentsMade      Payment[]       @relation("PaymentsMade")
   purchaseOrders    PurchaseOrder[]
+
+  @@index([type])
+  @@index([is_active])
 }
 
 model Category {
@@ -78,6 +81,8 @@ model PurchaseOrder {
   created_at  DateTime            @default(now())
   supplier    Entity              @relation(fields: [supplier_id], references: [id])
   lines       PurchaseOrderLine[]
+
+  @@index([supplier_id])
 }
 
 model PurchaseOrderLine {
@@ -89,6 +94,9 @@ model PurchaseOrderLine {
   unit_cost         Float
   product           Product       @relation(fields: [product_id], references: [id])
   purchaseOrder     PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+
+  @@index([purchase_order_id])
+  @@index([product_id])
 }
 
 model StockMovement {
@@ -101,6 +109,8 @@ model StockMovement {
   note           String?
   created_at     DateTime @default(now())
   product        Product  @relation(fields: [product_id], references: [id])
+
+  @@index([product_id])
 }
 
 model Invoice {
@@ -123,6 +133,11 @@ model Invoice {
   entity         Entity        @relation(fields: [entity_id], references: [id])
   lines          InvoiceLine[]
   payments       Payment[]
+
+  @@index([entity_id])
+  @@index([type, invoice_number])
+  @@index([balance_due])
+  @@index([issue_date])
 }
 
 model InvoiceLine {
@@ -139,6 +154,9 @@ model InvoiceLine {
   unit_cost       Float?
   product         Product? @relation(fields: [product_id], references: [id])
   invoice         Invoice  @relation(fields: [invoice_id], references: [id])
+
+  @@index([invoice_id])
+  @@index([product_id])
 }
 
 model Payment {
@@ -154,6 +172,9 @@ model Payment {
   debtTransfers     DebtTransfer[]
   paidByEntity      Entity         @relation("PaymentsMade", fields: [paid_by_entity_id], references: [id])
   invoice           Invoice?       @relation(fields: [invoice_id], references: [id])
+
+  @@index([invoice_id])
+  @@index([paid_by_entity_id])
 }
 
 model DebtTransfer {
@@ -167,6 +188,9 @@ model DebtTransfer {
   related_payment    Payment? @relation(fields: [related_payment_id], references: [id])
   toEntity           Entity   @relation("DebtTransferredTo", fields: [to_entity_id], references: [id])
   fromEntity         Entity   @relation("DebtTransferredFrom", fields: [from_entity_id], references: [id])
+
+  @@index([from_entity_id])
+  @@index([to_entity_id])
 }
 
 model DailySalesLog {
@@ -182,4 +206,8 @@ model DailySalesLog {
   created_at DateTime @default(now())
   entity     Entity?  @relation(fields: [entity_id], references: [id])
   product    Product  @relation(fields: [product_id], references: [id])
+
+  @@index([invoiced])
+  @@index([entity_id, invoiced])
+  @@index([product_id])
 }

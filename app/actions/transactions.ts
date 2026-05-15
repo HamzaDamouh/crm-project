@@ -25,49 +25,66 @@ export async function saveAsTransaction(data: TransactionData) {
       const logDate = new Date()
       let totalWalkInSaleAmount = 0
 
+      // Guard against negative stock (must be sequential to read current stock)
+      const productIds = data.lines.map(l => l.productId)
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+      })
+      const productMap = new Map(products.map(p => [p.id, p]))
+
       for (const line of data.lines) {
-        // Guard against negative stock
-        const product = await tx.product.findUnique({ where: { id: line.productId } })
+        const product = productMap.get(line.productId)
         if (!product) throw new Error(`Produit #${line.productId} introuvable.`)
         if (product.stock_qty < line.qty) {
           throw new Error(
             `Stock insuffisant pour "${product.name}": ${product.stock_qty} disponible(s), ${line.qty} demandé(s).`
           )
         }
-
-        const log = await tx.dailySalesLog.create({
-          data: {
-            entity_id: data.entityId > 0 ? data.entityId : null,
-            log_date: logDate,
-            product_id: line.productId,
-            qty: line.qty,
-            unit_price: line.unitPrice,
-            total: line.lineTotal,
-            note: data.entityId > 0 ? `Sale to entity #${data.entityId}` : "Walk-in sale",
-            invoiced: false,
-          },
-        })
-
-        // Accumulate total for the entity balance update
-        totalWalkInSaleAmount += line.lineTotal
-
-        // Create stock movement and decrement stock
-        await tx.stockMovement.create({
-          data: {
-            product_id: line.productId,
-            movement_type: "out",
-            qty: line.qty,
-            reference_type: "daily_sales_log",
-            reference_id: log.id,
-            note: `Vente comptoir`,
-          },
-        })
-
-        await tx.product.update({
-          where: { id: line.productId },
-          data: { stock_qty: { decrement: line.qty } },
-        })
       }
+
+      // Create daily sales logs in parallel
+      const logs = await Promise.all(
+        data.lines.map((line) =>
+          tx.dailySalesLog.create({
+            data: {
+              entity_id: data.entityId > 0 ? data.entityId : null,
+              log_date: logDate,
+              product_id: line.productId,
+              qty: line.qty,
+              unit_price: line.unitPrice,
+              total: line.lineTotal,
+              note: data.entityId > 0 ? `Sale to entity #${data.entityId}` : "Walk-in sale",
+              invoiced: false,
+            },
+          })
+        )
+      )
+
+      // Accumulate total for the entity balance update
+      totalWalkInSaleAmount = data.lines.reduce((sum, l) => sum + l.lineTotal, 0)
+
+      // Create stock movements and decrement stock in parallel
+      await Promise.all(
+        data.lines.map((line, i) => {
+          const log = logs[i]
+          return Promise.all([
+            tx.stockMovement.create({
+              data: {
+                product_id: line.productId,
+                movement_type: "out",
+                qty: line.qty,
+                reference_type: "daily_sales_log",
+                reference_id: log.id,
+                note: `Vente comptoir`,
+              },
+            }),
+            tx.product.update({
+              where: { id: line.productId },
+              data: { stock_qty: { decrement: line.qty } },
+            }),
+          ])
+        })
+      )
 
       // If this is a named entity, update their balance immediately (Fix #7)
       if (data.entityId > 0 && totalWalkInSaleAmount > 0) {
@@ -172,24 +189,27 @@ export async function generateInvoice(data: TransactionData) {
         },
       })
 
-      // Update stock for each line
-      for (const line of data.lines) {
-        await tx.stockMovement.create({
-          data: {
-            product_id: line.productId,
-            movement_type: "out",
-            qty: line.qty,
-            reference_type: "invoice",
-            reference_id: invoice.id,
-            note: `Facture ${invoiceNumber}`,
-          },
-        })
-
-        await tx.product.update({
-          where: { id: line.productId },
-          data: { stock_qty: { decrement: line.qty } },
-        })
-      }
+      // Update stock for each line (batched)
+      await Promise.all(
+        data.lines.map((line) =>
+          Promise.all([
+            tx.stockMovement.create({
+              data: {
+                product_id: line.productId,
+                movement_type: "out",
+                qty: line.qty,
+                reference_type: "invoice",
+                reference_id: invoice.id,
+                note: `Facture ${invoiceNumber}`,
+              },
+            }),
+            tx.product.update({
+              where: { id: line.productId },
+              data: { stock_qty: { decrement: line.qty } },
+            }),
+          ])
+        )
+      )
 
       // Update entity balance_due (FIX #1)
       await tx.entity.update({
@@ -197,22 +217,24 @@ export async function generateInvoice(data: TransactionData) {
         data: { balance_due: { increment: finalTotal } },
       })
 
-      // Log daily sales as invoiced
+      // Log daily sales as invoiced (batched)
       const logDate = new Date()
-      for (const line of data.lines) {
-        await tx.dailySalesLog.create({
-          data: {
-            entity_id: data.entityId > 0 ? data.entityId : null,
-            log_date: logDate,
-            product_id: line.productId,
-            qty: line.qty,
-            unit_price: line.unitPrice,
-            total: line.lineTotal,
-            note: `Facture directe: ${invoice.invoice_number}`,
-            invoiced: true,
-          },
-        })
-      }
+      await Promise.all(
+        data.lines.map((line) =>
+          tx.dailySalesLog.create({
+            data: {
+              entity_id: data.entityId > 0 ? data.entityId : null,
+              log_date: logDate,
+              product_id: line.productId,
+              qty: line.qty,
+              unit_price: line.unitPrice,
+              total: line.lineTotal,
+              note: `Facture directe: ${invoice.invoice_number}`,
+              invoiced: true,
+            },
+          })
+        )
+      )
 
       return invoice
     })

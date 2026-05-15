@@ -32,38 +32,39 @@ export async function receivePurchaseOrder(orderId: number) {
         data: { status: 'received' },
       })
 
-      // 3. Process each line: update qty_received, create StockMovement, and increment Product stock
-      for (const line of purchaseOrder.lines) {
-        const receivedQty = line.qty_ordered // Assuming full receipt for now
-
-        // Update qty_received on the line
-        await tx.purchaseOrderLine.update({
-          where: { id: line.id },
-          data: { qty_received: line.qty_ordered },
+      // 3. Process each line: update qty_received, create StockMovement, and increment Product stock (batched)
+      await Promise.all(
+        purchaseOrder.lines.map((line) => {
+          const receivedQty = line.qty_ordered // Assuming full receipt for now
+          return Promise.all([
+            // Update qty_received on the line
+            tx.purchaseOrderLine.update({
+              where: { id: line.id },
+              data: { qty_received: line.qty_ordered },
+            }),
+            // Create StockMovement
+            tx.stockMovement.create({
+              data: {
+                product_id: line.product_id,
+                movement_type: 'in',
+                qty: receivedQty,
+                reference_type: 'purchase_order',
+                reference_id: orderId,
+                note: `Received from Purchase Order #${orderId}`,
+              },
+            }),
+            // Increment stock_qty on Product
+            tx.product.update({
+              where: { id: line.product_id },
+              data: {
+                stock_qty: {
+                  increment: receivedQty,
+                },
+              },
+            }),
+          ])
         })
-
-        // Create StockMovement
-        await tx.stockMovement.create({
-          data: {
-            product_id: line.product_id,
-            movement_type: 'in',
-            qty: receivedQty,
-            reference_type: 'purchase_order',
-            reference_id: orderId,
-            note: `Received from Purchase Order #${orderId}`,
-          },
-        })
-
-        // Increment stock_qty on Product
-        await tx.product.update({
-          where: { id: line.product_id },
-          data: {
-            stock_qty: {
-              increment: receivedQty,
-            },
-          },
-        })
-      }
+      )
 
       return { success: true, message: "Purchase order received and inventory updated successfully." }
     })
@@ -113,34 +114,35 @@ export async function createPurchaseOrder(data: {
         include: { lines: true },
       })
 
-      let totalCost = 0
+      const totalCost = purchaseOrder.lines.reduce((sum, line) => sum + line.qty_ordered * line.unit_cost, 0)
 
-      // 2. Process each line: create StockMovement, and increment Product stock
-      for (const line of purchaseOrder.lines) {
-        totalCost += line.qty_ordered * line.unit_cost
-
-        // Create StockMovement
-        await tx.stockMovement.create({
-          data: {
-            product_id: line.product_id,
-            movement_type: 'in',
-            qty: line.qty_ordered,
-            reference_type: 'purchase_order',
-            reference_id: purchaseOrder.id,
-            note: `Achat - Bon de commande #${purchaseOrder.id}`,
-          },
-        })
-
-        // Increment stock_qty on Product
-        await tx.product.update({
-          where: { id: line.product_id },
-          data: {
-            stock_qty: {
-              increment: line.qty_ordered,
-            },
-          },
-        })
-      }
+      // 2. Process each line: create StockMovement, and increment Product stock (batched)
+      await Promise.all(
+        purchaseOrder.lines.map((line) =>
+          Promise.all([
+            // Create StockMovement
+            tx.stockMovement.create({
+              data: {
+                product_id: line.product_id,
+                movement_type: 'in',
+                qty: line.qty_ordered,
+                reference_type: 'purchase_order',
+                reference_id: purchaseOrder.id,
+                note: `Achat - Bon de commande #${purchaseOrder.id}`,
+              },
+            }),
+            // Increment stock_qty on Product
+            tx.product.update({
+              where: { id: line.product_id },
+              data: {
+                stock_qty: {
+                  increment: line.qty_ordered,
+                },
+              },
+            }),
+          ])
+        )
+      )
 
       // 3. Update supplier's balance_due by adding the total purchase cost
       await tx.entity.update({
