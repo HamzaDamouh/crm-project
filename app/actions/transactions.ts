@@ -3,36 +3,49 @@
 import prisma from "@/lib/db"
 import { Prisma } from "@prisma/client"
 import { revalidatePath } from "next/cache"
+import { z } from "zod"
 
-interface LineItem {
-  productId: number
-  qty: number
-  unitPrice: number
-  lineTotal: number
-}
+// ——— Zod Schemas ———
 
-interface TransactionData {
-  entityId: number
-  lines: LineItem[]
-  subtotal: number
-  taxAmount: number
-  total: number
-}
+const LineItemSchema = z.object({
+  productId: z.number().int().positive("Product ID must be a positive integer."),
+  qty: z.number().positive("Quantity must be greater than 0."),
+  unitPrice: z.number().positive("Unit price must be greater than 0."),
+  lineTotal: z.number().positive("Line total must be greater than 0."),
+})
 
-export async function saveAsTransaction(data: TransactionData) {
+const TransactionDataSchema = z.object({
+  entityId: z.number().int("Entity ID must be an integer."),
+  lines: z.array(LineItemSchema).min(1, "At least one line item is required."),
+  subtotal: z.number().nonnegative("Subtotal must be zero or positive."),
+  taxAmount: z.number().nonnegative("Tax amount must be zero or positive."),
+  total: z.number().positive("Total must be greater than 0."),
+})
+
+// ——— Server Actions ———
+
+export async function saveAsTransaction(data: unknown) {
+  // Validate input
+  const parsed = TransactionDataSchema.safeParse(data)
+  if (!parsed.success) {
+    const errors = parsed.error.issues.map((e: { message: string }) => e.message).join(", ")
+    return { success: false, message: `Validation error: ${errors}` }
+  }
+  const input = parsed.data
+
   try {
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const logDate = new Date()
       let totalWalkInSaleAmount = 0
 
       // Guard against negative stock (must be sequential to read current stock)
-      const productIds = data.lines.map(l => l.productId)
+      const productIds = input.lines.map(l => l.productId)
       const products = await tx.product.findMany({
         where: { id: { in: productIds } },
       })
       const productMap = new Map(products.map(p => [p.id, p]))
 
-      for (const line of data.lines) {
+      for (const line of input.lines) {
         const product = productMap.get(line.productId)
         if (!product) throw new Error(`Produit #${line.productId} introuvable.`)
         if (product.stock_qty < line.qty) {
@@ -44,16 +57,16 @@ export async function saveAsTransaction(data: TransactionData) {
 
       // Create daily sales logs in parallel
       const logs = await Promise.all(
-        data.lines.map((line) =>
+        input.lines.map((line) =>
           tx.dailySalesLog.create({
             data: {
-              entity_id: data.entityId > 0 ? data.entityId : null,
+              entity_id: input.entityId > 0 ? input.entityId : null,
               log_date: logDate,
               product_id: line.productId,
               qty: line.qty,
               unit_price: line.unitPrice,
               total: line.lineTotal,
-              note: data.entityId > 0 ? `Sale to entity #${data.entityId}` : "Walk-in sale",
+              note: input.entityId > 0 ? `Sale to entity #${input.entityId}` : "Walk-in sale",
               invoiced: false,
             },
           })
@@ -61,11 +74,11 @@ export async function saveAsTransaction(data: TransactionData) {
       )
 
       // Accumulate total for the entity balance update
-      totalWalkInSaleAmount = data.lines.reduce((sum, l) => sum + l.lineTotal, 0)
+      totalWalkInSaleAmount = input.lines.reduce((sum, l) => sum + l.lineTotal, 0)
 
       // Create stock movements and decrement stock in parallel
       await Promise.all(
-        data.lines.map((line, i) => {
+        input.lines.map((line, i) => {
           const log = logs[i]
           return Promise.all([
             tx.stockMovement.create({
@@ -87,11 +100,11 @@ export async function saveAsTransaction(data: TransactionData) {
       )
 
       // If this is a named entity, update their balance immediately (Fix #7)
-      if (data.entityId > 0 && totalWalkInSaleAmount > 0) {
+      if (input.entityId > 0 && totalWalkInSaleAmount > 0) {
         // Also add taxes since lineTotal is ex-VAT
-        const finalTotal = data.total
+        const finalTotal = input.total
         await tx.entity.update({
-          where: { id: data.entityId },
+          where: { id: input.entityId },
           data: { balance_due: { increment: finalTotal } },
         })
       }
@@ -109,7 +122,15 @@ export async function saveAsTransaction(data: TransactionData) {
   }
 }
 
-export async function generateInvoice(data: TransactionData) {
+export async function generateInvoice(data: unknown) {
+  // Validate input
+  const parsed = TransactionDataSchema.safeParse(data)
+  if (!parsed.success) {
+    const errors = parsed.error.issues.map((e: { message: string }) => e.message).join(", ")
+    return { success: false, message: `Validation error: ${errors}` }
+  }
+  const input = parsed.data
+
   try {
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Generate sequential invoice number (collision-proof inside transaction)
@@ -123,7 +144,7 @@ export async function generateInvoice(data: TransactionData) {
       const invoiceNumber = `FA-${year}-${String(lastNum + 1).padStart(4, "0")}`
 
       // Fetch products for tax rates, unit costs and stock check
-      const productIds = data.lines.map(l => l.productId)
+      const productIds = input.lines.map(l => l.productId)
       const products = await tx.product.findMany({
         where: { id: { in: productIds } },
         include: {
@@ -138,7 +159,7 @@ export async function generateInvoice(data: TransactionData) {
       const productMap = new Map(products.map(p => [p.id, p]))
 
       // Guard against negative stock
-      for (const line of data.lines) {
+      for (const line of input.lines) {
         const product = productMap.get(line.productId)
         if (!product) throw new Error(`Produit #${line.productId} introuvable.`)
         if (product.stock_qty < line.qty) {
@@ -149,32 +170,32 @@ export async function generateInvoice(data: TransactionData) {
       }
 
       // Calculate tax per line based on individual product rates
-      const calculatedTaxAmount = data.lines.reduce((sum, line) => {
+      const calculatedTaxAmount = input.lines.reduce((sum, line) => {
         const product = productMap.get(line.productId)
         const taxRate = product?.tax_rate ?? 20
         return sum + (Number(line.lineTotal) * (Number(taxRate) / 100))
       }, 0)
 
       const finalTaxAmount = Math.round(calculatedTaxAmount * 100) / 100
-      const finalTotal = Math.round((data.subtotal + finalTaxAmount) * 100) / 100
+      const finalTotal = Math.round((input.subtotal + finalTaxAmount) * 100) / 100
 
       // Create the invoice
       const invoice = await tx.invoice.create({
         data: {
-          entity_id: data.entityId,
+          entity_id: input.entityId,
           type: "invoice",
           status: "open",
           invoice_number: invoiceNumber,
           issue_date: new Date(),
           due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-          subtotal: data.subtotal,
+          subtotal: input.subtotal,
           tax_rate: 0,
           tax_amount: finalTaxAmount,
           total: finalTotal,
           amount_paid: 0,
           balance_due: finalTotal,
           lines: {
-            create: data.lines.map((line) => {
+            create: input.lines.map((line) => {
               const product = productMap.get(line.productId)
               return {
                 product_id: line.productId,
@@ -191,7 +212,7 @@ export async function generateInvoice(data: TransactionData) {
 
       // Update stock for each line (batched)
       await Promise.all(
-        data.lines.map((line) =>
+        input.lines.map((line) =>
           Promise.all([
             tx.stockMovement.create({
               data: {
@@ -213,17 +234,17 @@ export async function generateInvoice(data: TransactionData) {
 
       // Update entity balance_due (FIX #1)
       await tx.entity.update({
-        where: { id: data.entityId },
+        where: { id: input.entityId },
         data: { balance_due: { increment: finalTotal } },
       })
 
       // Log daily sales as invoiced (batched)
       const logDate = new Date()
       await Promise.all(
-        data.lines.map((line) =>
+        input.lines.map((line) =>
           tx.dailySalesLog.create({
             data: {
-              entity_id: data.entityId > 0 ? data.entityId : null,
+              entity_id: input.entityId > 0 ? input.entityId : null,
               log_date: logDate,
               product_id: line.productId,
               qty: line.qty,
