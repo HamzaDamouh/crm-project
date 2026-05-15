@@ -17,22 +17,86 @@ import { formatCurrency } from "@/lib/utils"
 import { DashboardPaymentButton } from "@/components/dashboard-payment-button"
 
 export default async function DashboardPage() {
-  // ——— ROW 1: Stat Cards ———
-
-  // Total Sales This Month (sum of paid invoices in current month)
+  // ——— Parallel data fetching ———
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-  const paidInvoicesThisMonth = await prisma.invoice.findMany({
-    where: {
-      type: "invoice",
-      issue_date: { gte: startOfMonth, lte: endOfMonth },
-    },
-    include: {
-      lines: true,
-    },
-  })
+  const [
+    paidInvoicesThisMonth,
+    unpaidInvoices,
+    allProducts,
+    pendingWalkIns,
+    recentInvoices,
+    entities,
+    topClientsRaw,
+  ] = await Promise.all([
+    // Total Sales This Month (invoices in current month, with lines for COGS)
+    prisma.invoice.findMany({
+      where: {
+        type: "invoice",
+        issue_date: { gte: startOfMonth, lte: endOfMonth },
+      },
+      take: 100,
+      include: {
+        lines: true,
+      },
+    }),
+
+    // Unpaid Invoices (bounded)
+    prisma.invoice.findMany({
+      where: { balance_due: { gt: 0 } },
+      take: 100,
+      select: {
+        id: true,
+        balance_due: true,
+        issue_date: true,
+        created_at: true,
+      },
+    }),
+
+    // All products (minimal fields for low-stock filtering in JS)
+    prisma.product.findMany({
+      select: {
+        id: true,
+        name: true,
+        reference: true,
+        stock_qty: true,
+        stock_min: true,
+      },
+    }),
+
+    // Pending Walk-in Sales count
+    prisma.dailySalesLog.count({
+      where: { invoiced: false },
+    }),
+
+    // Recent 8 Invoices
+    prisma.invoice.findMany({
+      take: 8,
+      orderBy: { created_at: "desc" },
+      include: { entity: true },
+    }),
+
+    // Entities for payment modal
+    prisma.entity.findMany({
+      where: { is_active: true },
+      select: { id: true, name: true, balance_due: true, type: true },
+      orderBy: { name: "asc" },
+    }),
+
+    // Top Clients by revenue — groupBy instead of loading all paid invoices with entity
+    prisma.invoice.groupBy({
+      by: ["entity_id"],
+      where: { status: "paid", type: "invoice" },
+      _sum: { total: true },
+      orderBy: { _sum: { total: "desc" } },
+      take: 5,
+    }),
+  ])
+
+  // ——— ROW 1: Stat Cards ———
+
   const totalSalesThisMonth = paidInvoicesThisMonth.reduce((sum: number, inv) => sum + inv.total, 0)
 
   // Gross Profit This Month (Revenue - COGS)
@@ -45,56 +109,27 @@ export default async function DashboardPage() {
   const grossProfitThisMonth = totalSalesThisMonth - totalCOGSThisMonth
   const profitMargin = totalSalesThisMonth > 0 ? (grossProfitThisMonth / totalSalesThisMonth) * 100 : 0
 
-  // Unpaid Invoices
-  const unpaidInvoices = await prisma.invoice.findMany({
-    where: { balance_due: { gt: 0 } },
-  })
+  // Unpaid aggregates
   const unpaidCount = unpaidInvoices.length
   const unpaidTotal = unpaidInvoices.reduce((sum: number, inv) => sum + inv.balance_due, 0)
 
-  // Low Stock Alerts
-  const allProducts = await prisma.product.findMany()
-  const lowStockProducts = allProducts.filter((p) => p.stock_qty <= p.stock_min)
-  const lowStockCount = lowStockProducts.length
+  // Low Stock — filter in app since Prisma can't compare two columns directly
+  const filteredLowStock = allProducts.filter((p) => p.stock_qty <= p.stock_min)
+  const lowStockCount = filteredLowStock.length
 
-  // Pending Walk-in Sales
-  const pendingWalkIns = await prisma.dailySalesLog.count({
-    where: { invoiced: false },
-  })
-
-  // ——— ROW 2: Recent Invoices + Top Clients ———
-
-  // Recent 8 Invoices
-  const recentInvoices = await prisma.invoice.findMany({
-    take: 8,
-    orderBy: { created_at: "desc" },
-    include: { entity: true },
-  })
-
-  // Fetch entities for payment modal
-  const entities = await prisma.entity.findMany({
-    where: { is_active: true },
-    select: { id: true, name: true, balance_due: true, type: true },
-    orderBy: { name: "asc" }
-  })
-
-  // Top 5 Clients by revenue (all time, from paid invoices)
-  const allPaidInvoices = await prisma.invoice.findMany({
-    where: { status: "paid", type: "invoice" },
-    include: { entity: true },
-  })
-  const revenueByClient: Record<string, number> = {}
-  for (const inv of allPaidInvoices) {
-    const name = inv.entity.name
-    revenueByClient[name] = (revenueByClient[name] || 0) + inv.total
-  }
-  const topClients = Object.entries(revenueByClient)
-    .map(([name, revenue]) => ({ name, revenue }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5)
-
-  // ——— ROW 3: Stock Alerts ———
-  // lowStockProducts already fetched above
+  // ——— Top Clients: resolve entity names for the groupBy results ———
+  const topClientEntityIds = topClientsRaw.map((r) => r.entity_id)
+  const topClientEntities = topClientEntityIds.length > 0
+    ? await prisma.entity.findMany({
+        where: { id: { in: topClientEntityIds } },
+        select: { id: true, name: true },
+      })
+    : []
+  const entityNameMap = new Map(topClientEntities.map((e) => [e.id, e.name]))
+  const topClients = topClientsRaw.map((r) => ({
+    name: entityNameMap.get(r.entity_id) || `Client #${r.entity_id}`,
+    revenue: r._sum.total || 0,
+  }))
 
   function getStatusBadge(status: string, balanceDue: number, total: number) {
     if (status === "paid" || balanceDue === 0)
@@ -124,12 +159,6 @@ export default async function DashboardPage() {
       agingBuckets[2].amount += inv.balance_due
     }
   })
-
-  // ——— ROW 3: Recent Invoices ———
-  // Recent 8 Invoices (defined above in Row 2 context previously)
-
-  // ——— ROW 4: Stock Alerts ———
-  // lowStockProducts already fetched above
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -275,7 +304,7 @@ export default async function DashboardPage() {
           <CardTitle>Alertes stock bas (Cliquer pour créer un bon de commande)</CardTitle>
         </CardHeader>
         <CardContent>
-          {lowStockProducts.length === 0 ? (
+          {filteredLowStock.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Tous les produits sont au-dessus des niveaux de stock minimum.
             </p>
@@ -291,7 +320,7 @@ export default async function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lowStockProducts.map((p) => {
+                {filteredLowStock.map((p) => {
                   const isCritical = p.stock_qty === 0
                   return (
                     <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50 transition-colors">

@@ -2,35 +2,43 @@ import prisma from "@/lib/db"
 import { StockClient } from "@/components/stock-view"
 
 export default async function StockPage() {
-  const products = await prisma.product.findMany({
-    orderBy: { name: "asc" },
-    include: {
-      category: { select: { id: true, name: true } },
-      purchaseOrderLines: {
-        include: {
-          purchaseOrder: {
-            include: {
-              supplier: { select: { name: true } },
+  const [products, categories, stockMovements] = await Promise.all([
+    prisma.product.findMany({
+      take: 100,
+      orderBy: { name: "asc" },
+      include: {
+        category: { select: { id: true, name: true } },
+        purchaseOrderLines: {
+          take: 20,
+          orderBy: { id: "desc" },
+          select: {
+            id: true,
+            qty_ordered: true,
+            unit_cost: true,
+            purchaseOrder: {
+              select: {
+                created_at: true,
+                supplier: { select: { name: true } },
+              },
             },
           },
         },
-        orderBy: { purchaseOrder: { created_at: "desc" } },
       },
-    },
-  })
+    }),
 
-  // We need categories for the create product dropdown
-  const categories = await prisma.category.findMany({
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  })
+    prisma.category.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
 
-  const stockMovements = await prisma.stockMovement.findMany({
-    orderBy: { created_at: "desc" },
-    include: {
-      product: { select: { id: true, name: true } },
-    },
-  })
+    prisma.stockMovement.findMany({
+      take: 100,
+      orderBy: { created_at: "desc" },
+      include: {
+        product: { select: { id: true, name: true } },
+      },
+    }),
+  ])
 
   return (
     <StockClient

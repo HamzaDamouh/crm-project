@@ -4,6 +4,7 @@ import { MonthEndClient } from "@/components/month-end-form"
 export default async function MonthEndPage() {
   const pending = await prisma.dailySalesLog.findMany({
     where: { invoiced: false },
+    take: 100,
     orderBy: { log_date: "desc" },
     include: {
       product: { select: { id: true, name: true, reference: true, tax_rate: true } },
@@ -12,6 +13,7 @@ export default async function MonthEndPage() {
 
   const entities = await prisma.entity.findMany({
     where: { type: { not: "supplier" }, is_active: true },
+    take: 100,
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   })

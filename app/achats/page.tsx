@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/utils"
 
 export default async function AchatsPage() {
   const achats = await prisma.purchaseOrder.findMany({
+    take: 100,
     orderBy: { created_at: "desc" },
     include: {
       supplier: { select: { name: true } },

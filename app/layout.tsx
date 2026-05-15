@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { cache } from "react";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -24,14 +25,19 @@ export const metadata: Metadata = {
   description: "B2B sales management system for hardware tools business in Morocco",
 };
 
+// Deduplicate this query across the server render so it only runs once per request
+const getPendingCount = cache(async () => {
+  return prisma.dailySalesLog.count({
+    where: { invoiced: false },
+  });
+});
+
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const pendingCount = await prisma.dailySalesLog.count({
-    where: { invoiced: false },
-  });
+  const pendingCount = await getPendingCount();
   return (
     <html lang="en" className={cn("font-sans", geistSans.variable)}>
       <body

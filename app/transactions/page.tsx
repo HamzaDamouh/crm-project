@@ -3,6 +3,7 @@ import { TransactionsListClient } from "@/components/transactions-list"
 
 export default async function TransactionsPage() {
   const entries = await prisma.dailySalesLog.findMany({
+    take: 100,
     orderBy: { log_date: "desc" },
     include: {
       product: { select: { name: true, reference: true } },
